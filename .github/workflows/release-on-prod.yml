@@ -1,0 +1,31 @@
+name: Tag and Release on Prod Deploy
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build version tag
+        id: v
+        run: |
+          TS=$(date -u +'%Y%m%d-%H%M')
+          echo "tag=prod-${TS}" >> $GITHUB_OUTPUT
+      - name: Create tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git tag -a "${{ steps.v.outputs.tag }}" -m "Production release"
+          git push origin "${{ steps.v.outputs.tag }}"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          name: Production ${{ steps.v.outputs.tag }}
+          generate_release_notes: true
+

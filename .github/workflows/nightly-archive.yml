@@ -1,0 +1,22 @@
+name: Nightly Source Snapshot
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Make archive
+        run: |
+          git archive --format=tar.gz -o source-$(date -u +'%Y%m%d').tar.gz HEAD
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-archive
+          path: source-*.tar.gz
+          retention-days: 14
+

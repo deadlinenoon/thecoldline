@@ -1,0 +1,9 @@
+node_modules
+.next
+.env*
+.vercel
+.DS_Store
+coverage
+dist
+tmp
+.vscode

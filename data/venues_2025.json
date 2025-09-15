@@ -1,0 +1,20 @@
+{
+  "ARENA_CORINTHIANS": {
+    "name": "Neo Quimica Arena",
+    "city": "São Paulo",
+    "country": "Brazil",
+    "lat": -23.54525,
+    "lon": -46.474278,
+    "roof": "Open-air",
+    "international": true
+  },
+  "ARROWHEAD": {
+    "name": "GEHA Field at Arrowhead Stadium",
+    "city": "Kansas City, MO",
+    "country": "USA",
+    "lat": 39.04888889,
+    "lon": -94.48388889,
+    "roof": "Open-air",
+    "international": false
+  }
+}

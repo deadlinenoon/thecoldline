@@ -1,0 +1,23 @@
+<svg width="172" height="48" viewBox="0 0 860 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TheColdLine.com">
+  <defs>
+    <linearGradient id="ice" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#bfe3ff"/>
+      <stop offset="1" stop-color="#5aa7e8"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M40,140 Q120,20 210,90 T380,110 T560,100 T760,90" fill="none" stroke="#0a2b46" stroke-width="28" stroke-linecap="round"/>
+    <path d="M40,140 Q120,20 210,90 T380,110 T560,100 T760,90" fill="none" stroke="url(#ice)" stroke-width="18" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(690,48)">
+    <rect rx="14" width="160" height="144" fill="#0d2236" stroke="#5aa7e8" stroke-width="4"/>
+    <g transform="translate(80,72)" stroke="#bfe3ff" stroke-width="8" stroke-linecap="round">
+      <line x1="-46" y1="0" x2="46" y2="0"/>
+      <line x1="0" y1="-46" x2="0" y2="46"/>
+      <line x1="-32" y1="-32" x2="32" y2="32"/>
+      <line x1="-32" y1="32" x2="32" y2="-32"/>
+    </g>
+  </g>
+  <text x="32" y="196" fill="#bfe3ff" font-family="Inter, system-ui, Arial" font-size="40" font-weight="700">TheColdLine.com</text>
+  </svg>
+
