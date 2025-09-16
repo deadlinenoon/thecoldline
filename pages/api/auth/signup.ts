@@ -64,6 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const maxAge = 60*60*24*7; const expires = new Date(Date.now() + maxAge*1000).toUTCString();
       const cookie = [`tcl_sess=${token}`,'HttpOnly','Path=/','SameSite=Lax',`Max-Age=${maxAge}`,`Expires=${expires}`, secure ? 'Secure' : ''].filter(Boolean).join('; ');
       res.setHeader('Set-Cookie', cookie);
+      try { const kv = await getKV(); await kv.incr(kSignups()); } catch {}
       return res.status(200).json({ ok: true, user: { email: em, role: 'user' } });
     }
     let user;

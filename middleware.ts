@@ -1,55 +1,12 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { getKV } from './lib/kv';
-import { kHits, kRef, kPath, dstr } from './lib/analytics/keys';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = [
-  '/login',
-  '/signup',
-  '/reset',
-  '/api/auth/login',
-  '/api/auth/logout',
-  '/api/auth/me',
-  '/api/auth/signup',
-  '/api/auth/reset-request',
-  '/api/auth/reset',
-  // Allow odds on login page (rotating widget) without a session
-  '/api/odds',
-  '/tutorial',
-  '/tutorial.pdf',
-  '/tutorial.mp4',
-  '/logo-ice-script.svg',
-];
+const PUBLIC = ["/api/ping", "/api/odds"];
 
-const skipPrefixes = ["/_next", "/api/admin", "/api/health", "/favicon", "/robots", "/sitemap", "/assets"];
-
-export async function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone();
-  const path = url.pathname;
-  // Count GET navigations (best-effort, ignore errors)
-  if (req.method === 'GET' && !skipPrefixes.some(p => path.startsWith(p))) {
-    try {
-      const kv = await getKV();
-      const day = dstr();
-      await kv.incr(kHits(day), 1);
-      const ref = req.headers.get('referer') || '(direct)';
-      const host = (()=>{ try{ return new URL(ref, req.nextUrl).host || '(direct)'; }catch{ return '(direct)'; } })();
-      await kv.zincrBy(kRef(day), host, 1);
-      const normalizedPath = path || '/';
-      await kv.zincrBy(kPath(day), normalizedPath, 1);
-    } catch {}
-  }
-  if (PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '/'))) {
-    return NextResponse.next();
-  }
-  const tok = req.cookies.get('tcl_sess');
-  if (!tok) {
-    url.pathname = '/login';
-    url.searchParams.set('next', path);
-    return NextResponse.redirect(url);
-  }
+export function middleware(req: NextRequest) {
+  const p = req.nextUrl.pathname;
+  if (PUBLIC.some(x => p === x || p.startsWith(x))) return NextResponse.next();
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+export const config = { matcher: ["/((?!_next|favicon.ico|assets).*)"] };

@@ -1,0 +1,106 @@
+
+> thecoldline@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.2
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 6.4s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/20) ...
+   Generating static pages (5/20) 
+   Generating static pages (10/20) 
+   Generating static pages (15/20) 
+ ✓ Generating static pages (20/20)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                  Size  First Load JS
+┌ ○ /                                       139 B         102 kB
+├ ○ /_not-found                             999 B         103 kB
+├ ƒ /api/jobs/update-travel-miles           139 B         102 kB
+├ ƒ /api/profile/avatar                     139 B         102 kB
+├ ƒ /api/travel-miles                       139 B         102 kB
+└ ƒ /api/travel/run                         139 B         102 kB
++ First Load JS shared by all              102 kB
+  ├ chunks/255-e3bf15caf1f1e0f9.js        45.8 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js   54.2 kB
+  └ other shared chunks (total)           1.92 kB
+
+Route (pages)                                Size  First Load JS
+┌   /_app                                     0 B         100 kB
+├ ○ /account                              2.27 kB         102 kB
+├ ○ /admin                                5.37 kB         106 kB
+├ ○ /admin/analytics                      1.19 kB         101 kB
+├ ○ /admin/travel                         1.07 kB         101 kB
+├ ○ /admin/users                          1.53 kB         102 kB
+├ ƒ /api/admin/data-health                    0 B         100 kB
+├ ƒ /api/admin/flags                          0 B         100 kB
+├ ƒ /api/admin/kv-debug                       0 B         100 kB
+├ ƒ /api/admin/logs                           0 B         100 kB
+├ ƒ /api/admin/migrate-users                  0 B         100 kB
+├ ƒ /api/admin/status                         0 B         100 kB
+├ ƒ /api/agent                                0 B         100 kB
+├ ƒ /api/ai-scrape                            0 B         100 kB
+├ ƒ /api/ai-summary                           0 B         100 kB
+├ ƒ /api/analytics/detail                     0 B         100 kB
+├ ƒ /api/analytics/event                      0 B         100 kB
+├ ƒ /api/analytics/summary                    0 B         100 kB
+├ ƒ /api/analytics/today-month                0 B         100 kB
+├ ƒ /api/analytics/trends                     0 B         100 kB
+├ ƒ /api/archive/[id]                         0 B         100 kB
+├ ƒ /api/archive/list                         0 B         100 kB
+├ ƒ /api/archive/save                         0 B         100 kB
+├ ƒ /api/auth/change-password                 0 B         100 kB
+├ ƒ /api/auth/invite                          0 B         100 kB
+├ ƒ /api/auth/invites                         0 B         100 kB
+├ ƒ /api/auth/login                           0 B         100 kB
+├ ƒ /api/auth/logout                          0 B         100 kB
+├ ƒ /api/auth/me                              0 B         100 kB
+├ ƒ /api/auth/reset                           0 B         100 kB
+├ ƒ /api/auth/reset-request                   0 B         100 kB
+├ ƒ /api/auth/signup                          0 B         100 kB
+├ ƒ /api/auth/upsert                          0 B         100 kB
+├ ƒ /api/auth/user-delete                     0 B         100 kB
+├ ƒ /api/auth/user-role                       0 B         100 kB
+├ ƒ /api/auth/users                           0 B         100 kB
+├ ƒ /api/auth/whitelist                       0 B         100 kB
+├ ƒ /api/coldline-odds                        0 B         100 kB
+├ ƒ /api/coldline-weather                     0 B         100 kB
+├ ƒ /api/consensus                            0 B         100 kB
+├ ƒ /api/h2h                                  0 B         100 kB
+├ ƒ /api/health                               0 B         100 kB
+├ ƒ /api/injuries                             0 B         100 kB
+├ ƒ /api/last10                               0 B         100 kB
+├ ƒ /api/last10-division                      0 B         100 kB
+├ ƒ /api/mov                                  0 B         100 kB
+├ ƒ /api/notes                                0 B         100 kB
+├ ƒ /api/odds                                 0 B         100 kB
+├ ƒ /api/ping                                 0 B         100 kB
+├ ƒ /api/plays                                0 B         100 kB
+├ ƒ /api/redzone                              0 B         100 kB
+├ ƒ /api/scores                               0 B         100 kB
+├ ƒ /api/team-notes                           0 B         100 kB
+├ ƒ /api/travel                               0 B         100 kB
+├ ƒ /api/travel/data                          0 B         100 kB
+├ ƒ /api/weather                              0 B         100 kB
+├ ○ /coldline                             7.33 kB         108 kB
+├ ○ /login                                25.3 kB         125 kB
+├ ○ /oddsboard                            2.43 kB         103 kB
+├ ○ /reset                                1.28 kB         101 kB
+├ ○ /signup                               1.33 kB         102 kB
+├ ○ /tutorial                             9.49 kB         110 kB
+└ ○ /weather                              2.79 kB         103 kB
++ First Load JS shared by all              106 kB
+  ├ chunks/framework-acd67e14855de5a2.js  57.7 kB
+  ├ chunks/main-0b5d18b25c2f11b9.js       36.7 kB
+  └ other shared chunks (total)           11.5 kB
+
+ƒ Middleware                              33.9 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

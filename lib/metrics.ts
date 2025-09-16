@@ -54,6 +54,10 @@ export const BASE: Metric[] = [
   { name: "Nickel_CB_Out_vs_Slot_Heavy_O", weightRange: [-0.5, 0.5], category: "injury", enabled: true, currentValue: 0 },
   { name: "Coverage_Unit_vs_ScrambleQB", weightRange: [-0.5, 0.5], category: "injury", enabled: true, currentValue: 0 },
   { name: "Kicker_Holder_Disruption", weightRange: [-0.5, 0.5], category: "injury", enabled: true, currentValue: 0 },
+  { name: "Starting_Center_Out", weightRange: [-0.75, 0.75], category: "injury", enabled: true, currentValue: 0 },
+  { name: "Starting_Holder_Out", weightRange: [-0.5, 0.5], category: "injury", enabled: true, currentValue: 0 },
+  { name: "Long_Snapper_Out", weightRange: [-0.75, 0.75], category: "injury", enabled: true, currentValue: 0 },
+  { name: "Field_Goal_Snapper_Out", weightRange: [-0.75, 0.75], category: "injury", enabled: true, currentValue: 0 },
 
   // Intangibles / Context (12)
   { name: "Revenge_Game_Flag", weightRange: [-0.75, 0.75], category: "context", enabled: true, currentValue: 0 },
@@ -87,6 +91,60 @@ export const BASE: Metric[] = [
   { name: "EPA_Play_Diff", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
   { name: "Success_Rate_Diff", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
   { name: "Yards_Per_Play_Diff", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
+  
+  // ——— Additional Requested Metrics ———
+  // 1) 3rd/4th down efficiency (offense/defense)
+  { name: "ThirdDown_Offense_Eff", weightRange: [-1, 1], category: "style", enabled: true, currentValue: 0 },
+  { name: "ThirdDown_Defense_Eff", weightRange: [-1, 1], category: "style", enabled: true, currentValue: 0 },
+  { name: "FourthDown_Offense_Eff", weightRange: [-1, 1], category: "style", enabled: true, currentValue: 0 },
+  { name: "FourthDown_Defense_Eff", weightRange: [-1, 1], category: "style", enabled: true, currentValue: 0 },
+
+  // 2) Yards per play (off/def; run, pass, overall)
+  { name: "YPP_Offense", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
+  { name: "YPP_Defense", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
+  { name: "YPR_Offense", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "YPR_Defense", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "YPPass_Offense", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "YPPass_Defense", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+
+  // 3) Turnovers per game (off/def; fumbles, interceptions)
+  { name: "Turnovers_Per_Game_Offense", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
+  { name: "Takeaways_Per_Game_Defense", weightRange: [-1, 1], category: "profile", enabled: true, currentValue: 0 },
+  { name: "INT_Thrown_Rate", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "Fumbles_Lost_Rate", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "INT_Generated_Rate", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+  { name: "Fumbles_Forced_Rate", weightRange: [-0.75, 0.75], category: "profile", enabled: true, currentValue: 0 },
+
+  // 4) Special teams details
+  { name: "ST_Return_Yardage_Edge", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+  { name: "ST_TD_Frequency", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+  { name: "ST_Blocked_Kicks_Punts", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+
+  // 5) Time of possession (team expression separate from diff)
+  { name: "TimeOfPossession_Offense", weightRange: [-0.5, 0.5], category: "fatigue", enabled: true, currentValue: 0 },
+  { name: "TimeOfPossession_Defense", weightRange: [-0.5, 0.5], category: "fatigue", enabled: true, currentValue: 0 },
+
+  // 6) Penalties by type (off/def)
+  { name: "Penalties_Offense_Holding", weightRange: [-0.5, 0.5], category: "context", enabled: true, currentValue: 0 },
+  { name: "Penalties_Defense_Holding", weightRange: [-0.5, 0.5], category: "context", enabled: true, currentValue: 0 },
+  { name: "Penalties_Offense_OPI", weightRange: [-0.5, 0.5], category: "context", enabled: true, currentValue: 0 },
+  { name: "Penalties_Defense_DPI", weightRange: [-0.5, 0.5], category: "context", enabled: true, currentValue: 0 },
+
+  // 7) Field goal specifics
+  { name: "FG_Percentage_By_Distance", weightRange: [-0.75, 0.75], category: "special_teams", enabled: true, currentValue: 0 },
+  { name: "Kicker_Dome_vs_Outdoor_Split", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+  { name: "Kicker_Estimated_Range", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+
+  // 8) PAT / 2PT
+  { name: "XP_Accuracy", weightRange: [-0.5, 0.5], category: "special_teams", enabled: true, currentValue: 0 },
+  { name: "TwoPoint_Conversion_Efficiency", weightRange: [-0.5, 0.5], category: "style", enabled: true, currentValue: 0 },
+
+  // 9) Off‑field issues
+  { name: "Off_Field_Distraction_Risk", weightRange: [-0.5, 0.5], category: "context", enabled: true, currentValue: 0 },
+
+  // 10) Red zone turnovers (offense/defense)
+  { name: "RedZone_Turnover_Rate_Offense", weightRange: [-0.75, 0.75], category: "style", enabled: true, currentValue: 0 },
+  { name: "RedZone_Turnover_Rate_Defense", weightRange: [-0.75, 0.75], category: "style", enabled: true, currentValue: 0 },
 ];
 
 // Descriptions
@@ -138,6 +196,10 @@ export const METRIC_DESC: Record<string, string> = {
   Nickel_CB_Out_vs_Slot_Heavy_O: "Nickel out vs slot volume.",
   Coverage_Unit_vs_ScrambleQB: "Secondary vs off-script plays.",
   Kicker_Holder_Disruption: "K/P/holder timing disruption risk.",
+  Starting_Center_Out: "Center out: snap/timing + comms; extra dock for shotgun-heavy O.",
+  Starting_Holder_Out: "Holder out: FG/PAT timing and laces risk (kicker chemistry).",
+  Long_Snapper_Out: "Long snapper out: punt & FG snap risk (operation speed/accuracy).",
+  Field_Goal_Snapper_Out: "FG snapper out: placekick snap risk on FG/PAT specifically.",
 
   // intangibles / context
   Revenge_Game_Flag: "Revenge angle motivation.",
@@ -170,6 +232,50 @@ export const METRIC_DESC: Record<string, string> = {
   EPA_Play_Diff: "EPA/play differential.",
   Success_Rate_Diff: "Success rate differential.",
   Yards_Per_Play_Diff: "Yards/play differential.",
+  
+  // additions
+  ThirdDown_Offense_Eff: "Offense 3rd-down conversion efficiency.",
+  ThirdDown_Defense_Eff: "Defense 3rd-down stop efficiency.",
+  FourthDown_Offense_Eff: "Offense 4th-down conversion efficiency.",
+  FourthDown_Defense_Eff: "Defense 4th-down stop efficiency.",
+
+  YPP_Offense: "Average yards per play on offense.",
+  YPP_Defense: "Average yards per play allowed.",
+  YPR_Offense: "Rush yards per attempt on offense.",
+  YPR_Defense: "Rush yards per attempt allowed.",
+  YPPass_Offense: "Pass yards per attempt/sack-adjusted on offense.",
+  YPPass_Defense: "Pass yards per attempt allowed.",
+
+  Turnovers_Per_Game_Offense: "Giveaways per game (lower is better).",
+  Takeaways_Per_Game_Defense: "Takeaways per game (higher is better).",
+  INT_Thrown_Rate: "Interceptions thrown rate.",
+  Fumbles_Lost_Rate: "Fumbles lost rate.",
+  INT_Generated_Rate: "Interceptions generated rate.",
+  Fumbles_Forced_Rate: "Fumbles forced rate.",
+
+  ST_Return_Yardage_Edge: "Kick/punt return yardage edge.",
+  ST_TD_Frequency: "Special teams touchdowns frequency.",
+  ST_Blocked_Kicks_Punts: "Blocked kicks/punts rate (for/against).",
+
+  TimeOfPossession_Offense: "Offense possession sustain (drives/clock).",
+  TimeOfPossession_Defense: "Defense possession suppression.",
+
+  Penalties_Offense_Holding: "Offensive holding burden.",
+  Penalties_Defense_Holding: "Defensive holding burden.",
+  Penalties_Offense_OPI: "Offensive pass interference frequency.",
+  Penalties_Defense_DPI: "Defensive pass interference frequency.",
+
+  FG_Percentage_By_Distance: "FG% by distance profile.",
+  Kicker_Dome_vs_Outdoor_Split: "Kicker dome vs outdoor split.",
+  Kicker_Estimated_Range: "Estimated makeable range in current conditions.",
+
+  XP_Accuracy: "Extra point accuracy.",
+  TwoPoint_Conversion_Efficiency: "Two-point conversion efficiency.",
+
+  Off_Field_Distraction_Risk: "Media/off-field distraction risk.",
+
+  RedZone_Turnover_Rate_Offense: "Turnovers in the red zone (offense).",
+  RedZone_Turnover_Rate_Defense: "Turnovers generated in the red zone (defense).",
 };
 
 // human-readable labels
@@ -177,6 +283,10 @@ export const HUMAN_LABEL: Record<string, string> = {
   Stadium_HFA: "Stadium HFA",
   RealFeel_Temp_Penalty: "RealFeel Temp Penalty",
   RainOrSnow_Adjustment: "Rain or Snow Adjustment",
+  Starting_Center_Out: "Starting Center Out",
+  Starting_Holder_Out: "Starting Holder Out",
+  Long_Snapper_Out: "Long Snapper Out",
+  Field_Goal_Snapper_Out: "Field Goal Snapper Out",
   Head_to_Head_Streak: "Head-to-Head Streak",
   Rivalry_Trend: "Rivalry Trend",
   ATS_Trend_Last5: "ATS Trend (Last 5)",

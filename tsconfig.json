@@ -17,6 +17,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "types": ["node"],
     "paths": {
       "@/*": [
         "./src/*"
@@ -29,12 +30,22 @@
     ]
   },
   "include": [
+    "next-env.d.ts",
+    "app/**/*",
+    "pages/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "libs/**/*",
+    "convex/**/*",
     "**/*.ts",
     "**/*.tsx",
-    "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

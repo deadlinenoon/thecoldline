@@ -12,14 +12,19 @@ async function countFromKV(): Promise<{ today:number; month:number }>{
   const dd = String(today.getUTCDate()).padStart(2,'0');
   const todayKey = `${yyyy}-${mm}-${dd}`;
   let todayCount = 0;
-  try{ const v = await kvGet(`analytics:day:${todayKey}`); todayCount = v==null? 0 : parseInt(v,10) || 0; }catch{}
+  try{
+    const v = await kvGet(`analytics:day:${todayKey}`);
+    const n = Number(v);
+    todayCount = Number.isFinite(n) ? n : parseInt(String(v ?? '0'), 10) || 0;
+  }catch{}
   let monthCount = 0;
   try{
     const first = new Date(Date.UTC(yyyy, today.getUTCMonth(), 1));
     for(let d = new Date(first); d.getUTCMonth()===first.getUTCMonth() && d <= today; d = new Date(d.getTime()+864e5)){
       const key = d.toISOString().slice(0,10);
       const v = await kvGet(`analytics:day:${key}`);
-      monthCount += v==null? 0 : (parseInt(v,10)||0);
+      const n = Number(v);
+      monthCount += Number.isFinite(n) ? n : (parseInt(String(v ?? '0'),10)||0);
     }
   }catch{}
   return { today: todayCount, month: monthCount };
@@ -53,4 +58,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(out);
   }catch(e:any){ return res.status(500).json({ error:e?.message||'hits error' }); }
 }
-
