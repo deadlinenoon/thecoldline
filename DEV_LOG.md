@@ -43,6 +43,24 @@ Notes:
 ---
 Date: 2025-09-15
 
+Prompt:
+TASK: Stabilize Upstash KV wrapper and redeploy (replace lib/kv.ts; build; deploy)
+
+Files touched:
+- lib/kv.ts (replaced with provided unified KV wrapper)
+
+Verify (separate terminal tab):
+- npm run guard  # optional
+- npx tsc -noEmit
+- npm run build
+- npx vercel@latest --prod --force --scope deadlinenoons-projects
+
+Notes:
+- The new KV exposes: get, getNum, setNX, del, incr, incrBy, hset, hgetall, lpush, lrange, sadd, smembers, srem, zincrBy, ztop; plus legacy helper exports.
+- If any code calls `kv.zincr(...)` from `getKV()`, update to `kv.zincrBy(...)` or rely on helper `kvZIncrBy(...)`.
+
+Date: 2025-09-15
+
 Change: Fix build by removing legacy avatar Pages API route; add App Router route; scrub Vercel env secret alias.
 
 Details:
@@ -112,6 +130,23 @@ Changes:
 Verify:
 - Run `npm run dev` and load `/`. Logo renders ~24px tall on mobile, ~28px on desktop; no stretch; other images unaffected.
 ---
+Date: 2025-09-15
+
+Prompt:
+You are Codex at ~/code/thecoldline. Make lib/kv.ts the single permanent KV implementation and re-export the legacy helpers so existing code compiles. All legacy helpers MUST delegate to getKV() so there is one code path. Then build. Print DONE with a short summary.
+
+Files touched:
+- lib/kv.ts (replaced with unified KV + memory fallback and legacy helper re-exports)
+
+Notes:
+- Added wrappers: kvAvailable, kvGet, kvSetNX, kvDel, kvHSet, kvHGetAll, kvLPush, kvLRange, kvSAdd, kvSMembers, kvSRem, kvIncr, kvIncrBy, kvZIncrBy.
+- KV includes methods used across repo: get, getNum, setNX, del, incr, incrBy, hset, hgetall, lpush, lrange, sadd, smembers, srem, zincrBy/zincr (alias), ztop.
+
+Verify (in a separate terminal tab):
+- Run: npx tsc -noEmit  # type check
+- Run: npm run build    # Next.js build
+- Exercise endpoints that touch KV (analytics, auth) to confirm no regressions.
+
 Date: 2025-09-14 11:19:14Z
 
 Prompt:

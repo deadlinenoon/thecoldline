@@ -33,9 +33,9 @@ export async function middleware(req: NextRequest) {
       await kv.incr(kHits(day), 1);
       const ref = req.headers.get('referer') || '(direct)';
       const host = (()=>{ try{ return new URL(ref, req.nextUrl).host || '(direct)'; }catch{ return '(direct)'; } })();
-      await kv.zincrBy(kRef(day), host, 1);
+      await kv.zincr(kRef(day), host, 1);
       const normalizedPath = path || '/';
-      await kv.zincrBy(kPath(day), normalizedPath, 1);
+      await kv.zincr(kPath(day), normalizedPath, 1);
     } catch {}
   }
   if (PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '/'))) {

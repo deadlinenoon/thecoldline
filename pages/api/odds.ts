@@ -24,6 +24,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const k2 = process.env.ODDS_API_KEY_2; // optional fallback
   const force = req.query.force === "1" || req.query.force === "true";
   try {
+    if (!k1 && !k2) {
+      res.setHeader("Cache-Control", force ? "no-store" : "s-maxage=30, stale-while-revalidate=15");
+      return res.status(200).json({ ok: false, events: [], error: "missing ODDS_API_KEY" });
+    }
     let data: any[] = await pull(k1!, force ? "no-store" : "default").catch(async (e: any) => {
       if (e?.code === 401 || e?.code === 403) return pull(k2!, "no-store");
       throw e;

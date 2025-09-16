@@ -6,11 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint || true",
+    "lint": "next lint",
     "make:pdf": "node scripts/make-tutorial-pdf.js",
     "make:video": "node scripts/make-tutorial-video.js",
     "check:agent": "node scripts/agent-parity.ts || node scripts/agent-parity.js",
     "guard": "node scripts/no-mock-check.mjs",
+    "typecheck": "tsc --noEmit",
+    "export:travel:2025": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/export-travel-miles-2025.ts",
     "tag:prod": "node -e \"const d=new Date().toISOString().replace(/[-:T]/g,'').slice(0,13).replace(/(.{8})(.{2})/,'$1-$2');console.log('prod-'+d)\" | xargs -I {} sh -c 'git tag -a {} -m Production && git push origin {}'",
     "vercel:rollback": "vercel rollback",
     "vercel:ls": "vercel ls || vercel list",
@@ -30,6 +32,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.5.3",
     "@tailwindcss/forms": "^0.5.10",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",
@@ -43,7 +46,8 @@
     "postcss": "^8.5.6",
     "puppeteer": "^23.7.1",
     "tailwindcss": "^3.4.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ts-node": "^10.9.2"
   },
   "prebuild": "node scripts/no-mock-check.mjs"
 }

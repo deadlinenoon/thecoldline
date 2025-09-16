@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'HttpOnly', 'Path=/', 'SameSite=Lax', `Max-Age=${maxAge}`, `Expires=${expires}`, secure ? 'Secure' : '',
     ].filter(Boolean).join('; ');
     res.setHeader('Set-Cookie', cookie);
-    try { const kv = getKV(); await kv.incr(kSignups()); } catch {}
+    try { const kv = await getKV(); await kv.incr(kSignups()); } catch {}
     return res.status(200).json({ ok: true, user: { email: user.email, role: user.role } });
   }catch(e:any){
     return res.status(500).json({ error: e?.message || 'signup error' });

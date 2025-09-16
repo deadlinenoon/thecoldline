@@ -7,7 +7,7 @@ function daysAgo(n: number) {
 }
 
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {
-  const kv = getKV();
+  const kv = await getKV();
   const today = dstr();
   const days7 = Array.from({length:7}, (_,i)=>dstr(daysAgo(i)));
   const days30 = Array.from({length:30},(_,i)=>dstr(daysAgo(i)));
