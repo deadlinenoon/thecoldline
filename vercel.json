@@ -1,5 +1,8 @@
 {
   "crons": [
-    { "path": "/api/travel/run", "schedule": "31 1 * * 2" }
+    {
+      "path": "/api/travel/run",
+      "schedule": "31 1 * * 2"
+    }
   ]
 }
