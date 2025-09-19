@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { kvIncr, kvSetNX } from '../../../lib/kv';
+import { kvIncr, kvSetNX } from '@/lib/kv';
 
 function bucketKey(env: string, d: Date){
   const iso = d.toISOString().replace(/[-:T.Z]/g,'');
@@ -22,4 +22,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok:false, error: e?.message || 'analytics error' });
   }
 }
-

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { favoriteFromSpread } from "../../lib/odds";
-import { logWarn } from "../../lib/logs";
+import { favoriteFromSpread } from '@/lib/odds';
+import { logWarn } from '@/lib/logs';
+import { getMatchupContext } from '@/lib/providers/balldontlie';
 
 type Settle<T> = Promise<{
   ok: boolean;
@@ -74,6 +75,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let rateProtected = false;
       const data: any = {};
 
+      const matchupPromise = getMatchupContext({ home, away, kickoff }).catch(error => {
+        logWarn('agent-matchup', error instanceof Error ? error.message : String(error));
+        return null;
+      });
+
       // Fire requests in parallel
       const [oddsResp, weatherResp, injuriesResp, playsResp, travelResp, redzoneResp, h2hResp, notesResp, consensusResp, movHResp, movAResp] = await Promise.all([
         safeJson(`${base}/api/odds`, 'odds'),
@@ -96,6 +102,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         consensusResp.rateProtected || movHResp.rateProtected || movAResp.rateProtected
       );
 
+      const matchupCtx = await matchupPromise;
+      if (matchupCtx) {
+        data.matchup = {
+          sport: matchupCtx.sport,
+          kickoff: matchupCtx.kickoff,
+          badges: matchupCtx.badges,
+          home: {
+            id: matchupCtx.home.id,
+            name: matchupCtx.home.displayName,
+            logos: matchupCtx.home.logos,
+            pace: matchupCtx.home.pace,
+            redZone: matchupCtx.home.redZone,
+            injuries: matchupCtx.home.injuries,
+          },
+          away: {
+            id: matchupCtx.away.id,
+            name: matchupCtx.away.displayName,
+            logos: matchupCtx.away.logos,
+            pace: matchupCtx.away.pace,
+            redZone: matchupCtx.away.redZone,
+            injuries: matchupCtx.away.injuries,
+          },
+        };
+        data.badges = matchupCtx.badges;
+        data.teamAssets = {
+          home: { id: matchupCtx.home.id, logos: matchupCtx.home.logos },
+          away: { id: matchupCtx.away.id, logos: matchupCtx.away.logos },
+        };
+      }
+
       // Odds: pick the matching game, compute favorite from homeSpread sign
       const evts = Array.isArray(oddsResp.data) ? oddsResp.data : (Array.isArray(oddsResp.data?.events) ? oddsResp.data.events : []);
       const match = evts.find((ev: any) => ev?.home_team === home && ev?.away_team === away) || null;
@@ -110,11 +146,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Direct slices (ensure object, never null/undefined) and numeric defaults
       data.weather   = (weatherResp.data && typeof weatherResp.data === 'object') ? weatherResp.data : { error: 'weather fetch failed' };
       const inj = (injuriesResp.data && typeof injuriesResp.data === 'object') ? injuriesResp.data : { error: 'injuries fetch failed' };
-      data.injuries  = {
-        home: inj?.home && typeof inj.home === 'object' ? { list: inj.home.list || [], count: Number(inj.home.count||0) } : { list: [], count: 0 },
-        away: inj?.away && typeof inj.away === 'object' ? { list: inj.away.list || [], count: Number(inj.away.count||0) } : { list: [], count: 0 },
-        ...(inj?.error ? { error: inj.error } : {})
+      const homeInj = inj?.home && typeof inj.home === 'object'
+        ? { list: inj.home.list || [], count: Number(inj.home.count || 0), ...(inj.home.sources ? { sources: inj.home.sources } : {}) }
+        : { list: [], count: 0 };
+      const awayInj = inj?.away && typeof inj.away === 'object'
+        ? { list: inj.away.list || [], count: Number(inj.away.count || 0), ...(inj.away.sources ? { sources: inj.away.sources } : {}) }
+        : { list: [], count: 0 };
+      const injuryBlock: any = {
+        home: homeInj,
+        away: awayInj,
       };
+      if (Array.isArray(inj?.sources)) injuryBlock.sources = inj.sources;
+      if (inj?.error) injuryBlock.error = inj.error;
+      data.injuries = injuryBlock;
       const pl = (playsResp.data && typeof playsResp.data === 'object') ? playsResp.data : {};
       // Preserve nulls when unknown to avoid misleading autos in UI (0 implies extreme fatigue)
       const nz = (v:any)=> (v==null || Number.isNaN(Number(v))) ? null : Number(v);
@@ -139,6 +183,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data.notes     = (notesResp.data && typeof notesResp.data === 'object') ? notesResp.data : { error: 'notes fetch failed' };
       data.consensus = (consensusResp.data && typeof consensusResp.data === 'object') ? consensusResp.data : { error: 'consensus fetch failed' };
 
+      const familiarity = computeCoachingFamiliarityAdjustments(home, away, kickoff);
+      if (familiarity) data.coachingFamiliarity = familiarity;
+
       // MOV combined
       const mov: any = {};
       if (movHResp.data && typeof movHResp.data === 'object' && !movHResp.data.error) mov.home = movHResp.data;
@@ -149,20 +196,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Market-driven favorite (from odds.homeSpread if present)
       try{
         const hs = Number((data.odds && (data.odds as any).homeSpread) ?? NaN);
-        const { favorite, isPickEm } = (await import('../../lib/odds')).favoriteFromSpread(Number.isFinite(hs)? hs : 0);
+        const { favorite, isPickEm } = (await import('@/lib/odds')).favoriteFromSpread(Number.isFinite(hs)? hs : 0);
         (data.odds as any).favorite = favorite;
         (data.odds as any).isPickEm = isPickEm;
       }catch{}
 
       // Compute fatigue autos and travel dock using plays + travel
       try{
-        const { computeFatigueAutos } = await import('../../lib/fatigue');
+        const { computeFatigueAutos } = await import('@/lib/fatigue');
         const fH = computeFatigueAutos(Number(data?.plays?.home?.offense||0), Number(data?.plays?.home?.defense||0));
         const fA = computeFatigueAutos(Number(data?.plays?.away?.offense||0), Number(data?.plays?.away?.defense||0));
         (data as any).fatigueAutos = { home: fH, away: fA };
       }catch{ (data as any).fatigueAutos = { home:0, away:0 }; }
       try{
-        const { computeTravelDock } = await import('../../lib/travelDock');
+        const { computeTravelDock } = await import('@/lib/travelDock');
         const th = data?.travel?.home||{}; const ta = data?.travel?.away||{};
         const dH = computeTravelDock(Number(th.milesSinceLastGame||0), Number(th.milesSinceLastHome||0), Number(th.milesSeasonToDate||0), Number(th.tzDiff||0));
         const dA = computeTravelDock(Number(ta.milesSinceLastGame||0), Number(ta.milesSinceLastHome||0), Number(ta.milesSeasonToDate||0), Number(ta.tzDiff||0));
@@ -180,4 +227,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     logWarn('agent', e?.message || e);
     return res.status(500).json({ error: e?.message || "agent error" });
   }
+}
+
+type CoachingSideAdjustment = { points: number; reason: string };
+type CoachingFamiliarityAdjustment = {
+  marginShift: number;
+  home?: CoachingSideAdjustment;
+  away?: CoachingSideAdjustment;
+};
+
+function computeCoachingFamiliarityAdjustments(home: string, away: string, kickoff: string): CoachingFamiliarityAdjustment | null {
+  const h = home.trim().toLowerCase();
+  const a = away.trim().toLowerCase();
+  const isCowboysHome = h === 'dallas cowboys';
+  const isCowboysAway = a === 'dallas cowboys';
+  const isBearsHome = h === 'chicago bears';
+  const isBearsAway = a === 'chicago bears';
+
+  if (!((isCowboysHome && isBearsAway) || (isBearsHome && isCowboysAway))) return null;
+
+  const marginShift = 0.75;
+  const reason = 'Dallas defensive coordinator Matt Eberflus coached the Bears from 2022–24, giving the Cowboys full familiarity with Chicago’s scheme.';
+
+  if (isCowboysHome) {
+    return {
+      marginShift,
+      home: { points: 0, reason },
+      away: { points: -marginShift, reason },
+    };
+  }
+
+  return {
+    marginShift,
+    home: { points: -marginShift, reason },
+    away: { points: 0, reason },
+  };
 }

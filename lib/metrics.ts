@@ -176,7 +176,9 @@ export const METRIC_DESC: Record<string, string> = {
   Offensive_Snap_Load: "Offense wear from tempo/playcount.",
   TimeOfPossession_Diff: "Rest edge via possession split.",
   BackToBack_Stress: "Consecutive grinders toll.",
-  Travel_Miles_Since_Home: "Accumulated miles fatigue.",
+  Travel_Miles_Since_Home: "Miles since last home.",
+  Travel_Miles_Season: "Cumulative miles traveled.",
+  Travel_Miles_Since_Game: "Miles since last game.",
   Early_Start_BodyClock: "Early kick body-clock hit.",
   Rest_Day_Differential: "Prep days advantage.",
   Late_Bye_Week_Edge: "Fresh legs from late bye.",
@@ -276,6 +278,13 @@ export const METRIC_DESC: Record<string, string> = {
 
   RedZone_Turnover_Rate_Offense: "Turnovers in the red zone (offense).",
   RedZone_Turnover_Rate_Defense: "Turnovers generated in the red zone (defense).",
+};
+
+// Default travel slider weights when autos are unavailable
+export const DEFAULT_WEIGHTS: Record<string, number> = {
+  Travel_Miles_Since_Home: -0.25,
+  Travel_Miles_Season: -0.75,
+  Travel_Miles_Since_Game: -0.20,
 };
 
 // human-readable labels

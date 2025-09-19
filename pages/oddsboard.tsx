@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { Event } from '../lib/oddsTypes';
-import { teamLogoUrl } from '../lib/logos';
+import type { Event } from '@/lib/oddsTypes';
+import { teamLogoUrl } from '@/lib/logos';
 
 function fmtOdds(n?: number|null){ if (typeof n!=='number'||!Number.isFinite(n)) return '—'; return n>0? `+${n}`: `${n}`; }
 function fmtPt(n?: number|null){ if (typeof n!=='number'||!Number.isFinite(n)) return '—'; return n>0? `+${n.toFixed(1)}`: n.toFixed(1); }

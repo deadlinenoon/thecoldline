@@ -66,32 +66,32 @@ async function real(): Promise<KV> {
       const o = await redis.hgetall<Record<string, string>>(key);
       return o ?? {};
     },
-    async lpush(key, ...values) {
-      return await redis.lpush(key, ...values);
+    async lpush(key: string, ...values: string[]) {
+      return await (redis as any).lpush(key, ...values);
     },
-    async lrange(key, start, stop) {
-      const out = await redis.lrange<string[]>(key, start, stop);
+    async lrange(key: string, start: number, stop: number) {
+      const out = (await redis.lrange(key, start, stop)) as string[] | null;
       return out ?? [];
     },
-    async sadd(key, ...members) {
-      return await redis.sadd(key, ...members);
+    async sadd(key: string, ...members: string[]) {
+      return await (redis as any).sadd(key, ...members);
     },
-    async smembers(key) {
-      return (await redis.smembers<string[]>(key)) ?? [];
+    async smembers(key: string) {
+      const res = (await redis.smembers(key)) as string[] | null;
+      return res ?? [];
     },
-    async srem(key, ...members) {
-      return await redis.srem(key, ...members);
+    async srem(key: string, ...members: string[]) {
+      return await (redis as any).srem(key, ...members);
     },
-    async zincrBy(key, member, by = 1) {
-      await redis.zadd(key, { member, score: by, incr: true as any });
-      const score = await redis.zscore<number>(key, member);
+    async zincrBy(key: string, member: string, by = 1) {
+      const score = await redis.zincrby(key, by, member);
       return Number(score ?? 0);
     },
-    async ztop(key, limit) {
-      const arr = await redis.zrange<(string | number)[]>(key, -limit, -1, {
+    async ztop(key: string, limit: number) {
+      const arr = (await redis.zrange(key, -limit, -1, {
         rev: true,
         withScores: true,
-      });
+      })) as (string | number)[];
       const out: [string, number][] = [];
       for (let i = 0; i < arr.length; i += 2) out.push([String(arr[i]), Number(arr[i + 1])]);
       return out;

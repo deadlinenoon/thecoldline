@@ -92,10 +92,28 @@ function DataHealth(){
   const [home,setHome] = useState("");
   const [away,setAway] = useState("");
   const [kickoff,setKickoff] = useState("");
+  const [games,setGames] = useState<Array<{ id: string; home: string; away: string; kickoff: string; label: string }>>([]);
+  const [selectedGame,setSelectedGame] = useState("");
+  const [gamesLoading,setGamesLoading] = useState(false);
   const [loading,setLoading] = useState(false);
   const [result,setResult] = useState<any|null>(null);
   const [msg,setMsg] = useState<string|null>(null);
   const [err,setErr] = useState<string|null>(null);
+
+  const formatKickoffLabel = (iso: string) => {
+    if (!iso) return 'Kickoff TBD';
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/New_York',
+      }).format(new Date(iso));
+    } catch {
+      return iso;
+    }
+  };
 
   useEffect(()=>{
     try{
@@ -104,6 +122,56 @@ function DataHealth(){
       if (h) setHome(h); if (a) setAway(a); if (k) setKickoff(k);
     }catch{}
   },[]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setGamesLoading(true);
+        const resp = await fetch('/api/coldline-odds', { cache: 'no-store' });
+        const payload = await resp.json().catch(() => []);
+        if (!Array.isArray(payload)) return;
+        const mapped = payload
+          .map((game: any, index: number) => {
+            const kickoffIso = typeof game?.commenceTime === 'string'
+              ? game.commenceTime
+              : (typeof game?.commence_time === 'string' ? game.commence_time : '');
+            const homeTeam = String(game?.home ?? game?.home_team ?? '').trim();
+            const awayTeam = String(game?.away ?? game?.away_team ?? '').trim();
+            if (!homeTeam || !awayTeam) return null;
+            const id = String(game?.id ?? `${awayTeam}-${homeTeam}-${kickoffIso || index}`);
+            return {
+              id,
+              home: homeTeam,
+              away: awayTeam,
+              kickoff: kickoffIso,
+              label: `${awayTeam} at ${homeTeam} — ${formatKickoffLabel(kickoffIso)}`,
+            };
+          })
+          .filter((game): game is { id: string; home: string; away: string; kickoff: string; label: string } => Boolean(game));
+        if (!cancelled) {
+          setGames(mapped);
+        }
+      } catch {
+        if (!cancelled) setGames([]);
+      } finally {
+        if (!cancelled) setGamesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleGameSelect = (value: string) => {
+    setSelectedGame(value);
+    const game = games.find(g => g.id === value);
+    if (game) {
+      setHome(game.home);
+      setAway(game.away);
+      setKickoff(game.kickoff);
+    }
+  };
 
   async function check(){
     setErr(null); setMsg(null); setResult(null); setLoading(true);
@@ -137,6 +205,19 @@ function DataHealth(){
     <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720]">
       <div className="text-sm font-semibold text-gray-200 mb-2">Data health (by matchup)</div>
       <div className="grid grid-cols-1 gap-2 text-xs">
+        <select
+          value={selectedGame}
+          onChange={e => handleGameSelect(e.target.value)}
+          disabled={gamesLoading}
+          className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white disabled:opacity-60"
+        >
+          <option value="">{gamesLoading ? 'Loading matchups…' : 'Select matchup'}</option>
+          {games.map(game => (
+            <option key={game.id} value={game.id}>
+              {game.label}
+            </option>
+          ))}
+        </select>
         <input value={home} onChange={e=>setHome(e.target.value)} placeholder="Home team (e.g., Detroit Lions)" className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white" />
         <input value={away} onChange={e=>setAway(e.target.value)} placeholder="Away team (e.g., Chicago Bears)" className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white" />
         <input value={kickoff} onChange={e=>setKickoff(e.target.value)} placeholder="Kickoff ISO (e.g., 2025-10-05T17:00:00Z)" className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white" />
@@ -352,35 +433,77 @@ function ConsensusFlagCard(){
   );
 }
 
+type MetricDelta = { DoD: number | null; WoW: number | null; MoM: number | null; QoQ: number | null; YoY: number | null };
+type MetricOverview = {
+  value: number;
+  trailing7: number;
+  trailing30: number;
+  trailing90: number;
+  trailing365: number;
+  delta: MetricDelta;
+};
+type SummaryData = {
+  today: { hits: number; signups: number };
+  yesterday: { hits: number; signups: number };
+  totals: { hits: MetricOverview; signups: MetricOverview };
+  topReferrersToday: Array<{ ref: string; hits: number }>;
+  topPathsToday: Array<{ path: string; hits: number }>;
+};
+
 function AnalyticsSummary(){
-  const [data,setData] = useState<{total:number; uniqueSessions:number; uniqueUsers:number; daily:{date:string;count:number}[]} | null>(null);
+  const [data,setData] = useState<SummaryData | null>(null);
   const [err,setErr] = useState<string|null>(null);
   const router = useRouter();
+
   useEffect(()=>{(async()=>{
-    try{ const me=await fetch('/api/auth/me', { credentials: 'include' as RequestCredentials }); if(!me.ok){ router.replace('/login?next=/admin'); return; } const r=await fetch('/api/analytics/summary', { credentials: 'include' as RequestCredentials }); const j=await r.json(); if(!r.ok) throw new Error(j?.error||'error'); setData(j); }catch(e:any){ setErr(e?.message||'error'); }
+    try{
+      const me=await fetch('/api/auth/me', { credentials: 'include' as RequestCredentials });
+      if(!me.ok){ router.replace('/login?next=/admin'); return; }
+      const r=await fetch('/api/analytics/summary', { credentials: 'include' as RequestCredentials });
+      const j=await r.json();
+      if(!r.ok) throw new Error(j?.error||'error');
+      setData(j);
+    }catch(e:any){ setErr(e?.message||'error'); }
   })();},[router]);
+
   return (
     <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720] md:col-span-2">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-semibold text-gray-200">Analytics overview (14d)</div>
-            <a href="/admin/analytics" className="text-xs text-cyan-300 underline" aria-label="Open full analytics">Open full</a>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <div className="text-sm font-semibold text-gray-200">Analytics overview</div>
+          <div className="text-[11px] text-gray-500">Hits and signups • rolling deltas</div>
+        </div>
+        <a href="/admin/analytics" className="text-xs text-cyan-300 underline" aria-label="Open full analytics">Open full</a>
       </div>
       {err && <div className="text-xs text-rose-400">{err}</div>}
+      {!data && !err && <div className="text-xs text-gray-400">Loading analytics…</div>}
       {data && (
         <>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <a href="/admin/analytics" className="block p-2 rounded hover:bg-[#121a27] transition-colors">
-              <div className="text-xs text-gray-400">Total</div>
-              <div className="text-xl font-bold">{data.total}</div>
-            </a>
-            <div className="p-2">
-              <div className="text-xs text-gray-400">Sessions</div>
-              <div className="text-xl font-bold">{data.uniqueSessions}</div>
-            </div>
-            <div className="p-2">
-              <div className="text-xs text-gray-400">Users</div>
-              <div className="text-xl font-bold">{data.uniqueUsers}</div>
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <MetricCard
+              title="Hits"
+              today={data.today.hits}
+              yesterday={data.yesterday.hits}
+              overview={data.totals.hits}
+            />
+            <MetricCard
+              title="Signups"
+              today={data.today.signups}
+              yesterday={data.yesterday.signups}
+              overview={data.totals.signups}
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <TopListCard
+              title="Top referrers (today)"
+              rows={data.topReferrersToday.map(item => ({ label: item.ref || 'direct', value: item.hits }))}
+              emptyLabel="No referrers recorded yet."
+            />
+            <TopListCard
+              title="Top paths (today)"
+              rows={data.topPathsToday.map(item => ({ label: item.path || '/', value: item.hits }))}
+              emptyLabel="No pageviews yet."
+            />
           </div>
           <AnalyticsTopPaths />
         </>
@@ -389,20 +512,86 @@ function AnalyticsSummary(){
   );
 }
 
+function MetricCard({ title, today, yesterday, overview }: { title: string; today: number; yesterday: number; overview: MetricOverview }) {
+  return (
+    <div className="rounded-lg border border-[#233041] bg-[#0f1720] p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-wide text-gray-400">{title} today</span>
+        <DeltaBadge label="DoD" value={overview.delta.DoD} />
+      </div>
+      <div className="mt-2 text-2xl font-semibold text-slate-100">{today.toLocaleString()}</div>
+      <div className="text-[11px] text-gray-500">Yesterday: {yesterday.toLocaleString()}</div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <DeltaBadge label="WoW" value={overview.delta.WoW} />
+        <DeltaBadge label="MoM" value={overview.delta.MoM} />
+        <DeltaBadge label="QoQ" value={overview.delta.QoQ} />
+        <DeltaBadge label="YoY" value={overview.delta.YoY} />
+      </div>
+      <div className="mt-3 space-y-1 text-[11px] text-gray-400">
+        <div>Trailing 7d: <strong className="text-gray-200">{overview.trailing7.toLocaleString()}</strong></div>
+        <div>Trailing 30d: <strong className="text-gray-200">{overview.trailing30.toLocaleString()}</strong></div>
+        <div>Trailing 90d: <strong className="text-gray-200">{overview.trailing90.toLocaleString()}</strong></div>
+        <div>Trailing 365d: <strong className="text-gray-200">{overview.trailing365.toLocaleString()}</strong></div>
+      </div>
+    </div>
+  );
+}
+
+function DeltaBadge({ label, value }: { label: string; value: number | null }) {
+  if (value === null) {
+    return <span className="rounded bg-[#1a2330] px-2 py-1 text-[11px] text-gray-400">{label}: —</span>;
+  }
+  const formatted = value > 0 ? `+${value.toFixed(1)}%` : `${value.toFixed(1)}%`;
+  const positive = value > 0;
+  const negative = value < 0;
+  const cls = positive
+    ? 'bg-emerald-600/20 text-emerald-200 border border-emerald-500/40'
+    : negative
+      ? 'bg-rose-600/20 text-rose-200 border border-rose-500/40'
+      : 'bg-[#1a2330] text-gray-300 border border-[#243244]';
+  return <span className={`rounded px-2 py-1 text-[11px] ${cls}`}>{label}: {formatted}</span>;
+}
+
+function TopListCard({ title, rows, emptyLabel }: { title: string; rows: Array<{ label: string; value: number }>; emptyLabel: string }) {
+  return (
+    <div className="rounded-lg border border-[#233041] bg-[#0f1720] p-4">
+      <div className="text-xs uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="mt-2 space-y-1 text-xs">
+        {rows.length === 0 ? (
+          <div className="text-gray-500">{emptyLabel}</div>
+        ) : (
+          rows.map(row => (
+            <div key={row.label} className="flex items-center justify-between rounded border border-[#233041] px-2 py-1 text-gray-200">
+              <span className="truncate pr-2">{row.label}</span>
+              <span className="text-gray-400">{row.value.toLocaleString()}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TrendsCard(){
-  const [data,setData] = useState<any|null>(null);
+  const [data,setData] = useState<{ labels: string[]; hits: number[]; signups: number[]; deltas: { WoW: number | null; MoM: number | null; QoQ: number | null; YoY: number | null } }|null>(null);
   const [err,setErr] = useState<string|null>(null);
   const router = useRouter();
   useEffect(()=>{(async()=>{
     try{ const me=await fetch('/api/auth/me', { credentials: 'include' as RequestCredentials }); if(!me.ok){ router.replace('/login?next=/admin'); return; } const r=await fetch('/api/analytics/trends', { credentials:'include' as RequestCredentials }); const j=await r.json(); if(!r.ok) throw new Error(j?.error||'error'); setData(j); }catch(e:any){ setErr(e?.message||'error'); }
   })();},[router]);
-  function Spark({series}:{series:{date:string;count:number}[]}){
-    if (!series || series.length===0) return null;
-    const max = Math.max(...series.map(s=>s.count), 1);
+  function Spark({ labels, values }: { labels: string[]; values: number[] }){
+    const points = labels.map((label, idx) => ({ label, value: values[idx] ?? 0 }));
+    if (!points.length) return null;
+    const max = Math.max(...points.map(p=>p.value), 1);
     return (
       <div className="flex items-end gap-1 h-12">
-        {series.slice(-28).map((s,i)=> (
-          <div key={s.date+':'+i} className="w-2 bg-cyan-600 rounded-sm" style={{ height: `${Math.max(2, Math.round((s.count/max)*100))}%` }} title={`${s.date}: ${s.count}`} />
+        {points.slice(-28).map((point,i)=> (
+          <div
+            key={point.label+':'+i}
+            className="w-2 rounded-sm bg-cyan-600"
+            style={{ height: `${Math.max(2, Math.round((point.value/max)*100))}%` }}
+            title={`${point.label}: ${point.value}`}
+          />
         ))}
       </div>
     );
@@ -416,7 +605,7 @@ function TrendsCard(){
       {err && <div className="text-xs text-rose-400">{err}</div>}
       {data && (
         <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-          <Spark series={data.daily||[]} />
+          <Spark labels={data.labels||[]} values={data.hits||[]} />
           <div className="flex flex-wrap gap-2">
             <Badge label="WoW" val={data?.deltas?.WoW ?? null} />
             <Badge label="MoM" val={data?.deltas?.MoM ?? null} />
@@ -430,8 +619,7 @@ function TrendsCard(){
 }
 
 function HitsCard(){
-  const [tab,setTab] = useState<'today'|'month'>('today');
-  const [data,setData] = useState<{today:number;month:number}|null>(null);
+  const [data,setData] = useState<{ hits:{ today:number; month:number }; signups:{ today:number; month:number } }|null>(null);
   const [err,setErr] = useState<string|null>(null);
   const router = useRouter();
   useEffect(()=>{(async()=>{
@@ -439,20 +627,27 @@ function HitsCard(){
   })();},[router]);
   return (
     <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720]">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-semibold text-gray-200">Hits</div>
-        <div className="flex gap-2 text-xs">
-          <button onClick={()=>setTab('today')} className={`px-2 py-1 rounded ${tab==='today'?'bg-cyan-600 text-white':'bg-[#1a2330] text-gray-400'}`}>Today</button>
-          <button onClick={()=>setTab('month')} className={`px-2 py-1 rounded ${tab==='month'?'bg-cyan-600 text-white':'bg-[#1a2330] text-gray-400'}`}>This month</button>
-        </div>
-      </div>
+      <div className="text-sm font-semibold text-gray-200 mb-2">Today & month to date</div>
       {err && <div className="text-xs text-rose-400">{err}</div>}
+      {!data && !err && <div className="text-xs text-gray-400">Loading…</div>}
       {data && (
-        <div className="text-center py-4">
-          <div className="text-xs text-gray-400 mb-1">{tab==='today'? 'Hits today' : 'Hits this month'}</div>
-          <div className="text-3xl font-bold">{tab==='today'? data.today : data.month}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <MiniStatCard title="Hits" today={data.hits.today} month={data.hits.month} />
+          <MiniStatCard title="Signups" today={data.signups.today} month={data.signups.month} />
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStatCard({ title, today, month }: { title: string; today: number; month: number }){
+  return (
+    <div className="rounded border border-[#233041] bg-[#0f1720] px-3 py-2">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400">{title}</div>
+      <div className="mt-1 text-xs text-gray-500">Today</div>
+      <div className="text-xl font-semibold text-slate-100">{today.toLocaleString()}</div>
+      <div className="mt-2 text-xs text-gray-500">Month to date</div>
+      <div className="text-lg font-semibold text-slate-100">{month.toLocaleString()}</div>
     </div>
   );
 }
@@ -461,8 +656,8 @@ function AnalyticsTopPaths(){
   const [rows,setRows] = useState<{path:string;count:number}[]|null>(null);
   const [users,setUsers] = useState<string[]|null>(null);
   const [openUsers,setOpenUsers] = useState(false);
-  useEffect(()=>{(async()=>{ try{ const r=await fetch('/api/analytics/detail', { credentials: 'include' as RequestCredentials }); const j=await r.json(); if(r.ok){ setRows(j.topPaths||[]); setUsers(j.usersList||[]);} }catch{} })();},[]);
-  useEffect(()=>{ const t=setInterval(async()=>{ try{ const r=await fetch('/api/analytics/detail', { credentials: 'include' as RequestCredentials }); const j=await r.json(); if(r.ok){ setRows(j.topPaths||[]); setUsers(j.usersList||[]);} }catch{} }, 15000); return ()=>clearInterval(t); },[]);
+  useEffect(()=>{(async()=>{ try{ const r=await fetch('/api/analytics/detail', { credentials: 'include' as RequestCredentials }); const j=await r.json(); if(r.ok){ setRows(j.topPaths||[]); setUsers(j.uniqueUsers||j.usersList||[]);} }catch{} })();},[]);
+  useEffect(()=>{ const t=setInterval(async()=>{ try{ const r=await fetch('/api/analytics/detail', { credentials: 'include' as RequestCredentials }); const j=await r.json(); if(r.ok){ setRows(j.topPaths||[]); setUsers(j.uniqueUsers||j.usersList||[]);} }catch{} }, 15000); return ()=>clearInterval(t); },[]);
   if (!rows) return null;
   return (
     <div className="mt-3 text-xs">

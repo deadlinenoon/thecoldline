@@ -50,6 +50,40 @@ add(["Tampa Bay","Tampa"], "Tampa Bay Buccaneers");
 add(["Tennessee","Nashville"], "Tennessee Titans");
 add(["Washington","Washington Football Team","Redskins"], "Washington Commanders");
 
+// Nicknames
+add(["Cardinals"], "Arizona Cardinals");
+add(["Falcons"], "Atlanta Falcons");
+add(["Ravens"], "Baltimore Ravens");
+add(["Bills"], "Buffalo Bills");
+add(["Panthers"], "Carolina Panthers");
+add(["Bears"], "Chicago Bears");
+add(["Bengals"], "Cincinnati Bengals");
+add(["Browns"], "Cleveland Browns");
+add(["Cowboys"], "Dallas Cowboys");
+add(["Broncos"], "Denver Broncos");
+add(["Lions"], "Detroit Lions");
+add(["Packers"], "Green Bay Packers");
+add(["Texans"], "Houston Texans");
+add(["Colts"], "Indianapolis Colts");
+add(["Jaguars"], "Jacksonville Jaguars");
+add(["Chiefs"], "Kansas City Chiefs");
+add(["Raiders"], "Las Vegas Raiders");
+add(["Chargers"], "Los Angeles Chargers");
+add(["Rams"], "Los Angeles Rams");
+add(["Dolphins"], "Miami Dolphins");
+add(["Vikings"], "Minnesota Vikings");
+add(["Patriots"], "New England Patriots");
+add(["Saints"], "New Orleans Saints");
+add(["Giants"], "New York Giants");
+add(["Jets"], "New York Jets");
+add(["Eagles"], "Philadelphia Eagles");
+add(["Steelers"], "Pittsburgh Steelers");
+add(["49ers","Forty Niners"], "San Francisco 49ers");
+add(["Seahawks"], "Seattle Seahawks");
+add(["Buccaneers","Bucs"], "Tampa Bay Buccaneers");
+add(["Titans"], "Tennessee Titans");
+add(["Commanders"], "Washington Commanders");
+
 // Abbreviations
 add(["ARI"], "Arizona Cardinals");
 add(["ATL"], "Atlanta Falcons");
@@ -93,4 +127,3 @@ export function normalizeTeam(input: string): string {
 export const TEAM_NORMALIZE_MAP: Readonly<Record<string, string>> = MAP;
 
 export default normalizeTeam;
-

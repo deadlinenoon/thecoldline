@@ -1,19 +1,202 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import type { Event } from '../lib/oddsTypes';
-import { getPrimetimeTag } from '../lib/nfl/primetime';
+import type { Event } from '@/lib/oddsTypes';
+import { getPrimetimeTag } from '@/lib/nfl/primetime';
+import type { PrimetimeTag } from '@/lib/nfl/primetime';
+import { getNetworkLogo, getPrimetimeLogoFromTag } from '@/lib/nfl/broadcast';
+
+const DEFAULT_REDIRECT = '/coldline';
+const DOME_TEAMS = new Set<string>([
+  'Arizona Cardinals',
+  'Atlanta Falcons',
+  'New Orleans Saints',
+  'Minnesota Vikings',
+  'Detroit Lions',
+  'Dallas Cowboys',
+  'Houston Texans',
+  'Indianapolis Colts',
+  'Los Angeles Rams',
+  'Los Angeles Chargers',
+  'Las Vegas Raiders',
+]);
+
+type WxInfo = {
+  icon?: string | null;
+  description?: string | null;
+  temp_f?: number | null;
+  roof?: string | null;
+  expectedClosed?: boolean;
+};
+
+const DOME_KEYWORDS = [
+  'Mercedes-Benz',
+  'SoFi',
+  'Caesars Superdome',
+  'Allegiant',
+  'Lucas Oil',
+  'Ford Field',
+  'State Farm',
+  'AT&T Stadium',
+  'NRG',
+];
+
+const isDomeStadium = (stadiumName = '', surface = ''): boolean => {
+  const name = stadiumName.toLowerCase();
+  const surf = surface.toLowerCase();
+  if (surf === 'dome') return true;
+  if (DOME_KEYWORDS.some(keyword => name.includes(keyword.toLowerCase()))) return true;
+  return false;
+};
+
+const emojiLabel = (emoji: string, tag: PrimetimeTag | null): string | null => {
+  switch (emoji) {
+    case '🏟️':
+      return 'Indoor game';
+    case '🦃':
+      return 'Thanksgiving game';
+    case '🎄':
+      return 'Christmas game';
+    case '🛍️':
+      return 'Black Friday game';
+    case '🧊':
+      return 'Freezing conditions';
+    case '🏆':
+      return 'Playoff game';
+    case '📺':
+      return tag ? `${tag} primetime` : 'Primetime game';
+    case '🪩':
+      return 'Saturday night game';
+    case '🏈':
+      return 'NFL game';
+    default:
+      return null;
+  }
+};
+
+type GameEmojiContext = {
+  isDome: boolean;
+  isThanksgiving: boolean;
+  isChristmas: boolean;
+  isBlackFriday: boolean;
+  isPlayoffs: boolean;
+  isSaturdayNight: boolean;
+  tempF: number | null;
+  network: string;
+  weekday: string;
+};
+
+const getGameEmoji = (context: GameEmojiContext): string => {
+  if (context.isDome) return '🏟️';
+  if (context.isThanksgiving) return '🦃';
+  if (context.isChristmas) return '🎄';
+  if (context.isBlackFriday) return '🛍️';
+  if (context.isPlayoffs) return '🏆';
+  if (context.tempF !== null && context.tempF <= 32) return '🧊';
+  if (
+    ['nbc', 'espn', 'prime video', 'prime', 'amazon'].some(net => context.network.includes(net)) &&
+    ['sunday', 'monday', 'thursday'].some(day => context.weekday.includes(day))
+  ) {
+    return '📺';
+  }
+  if (context.isSaturdayNight) return '🪩';
+  return '🏈';
+};
+
+function eventBadge(event: Event, weather?: WxInfo) {
+  const iso = event.commence_time;
+  const kickoff = new Date(iso);
+  if (!Number.isFinite(kickoff.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(kickoff);
+  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value || '';
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value || '0');
+  const month = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'numeric' }).format(kickoff));
+  const dayNum = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', day: 'numeric' }).format(kickoff));
+  let weekdayLong = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long' }).format(kickoff);
+  if (weekdayShort === 'Sat' && hour >= 19) {
+    weekdayLong = `${weekdayLong} Night`;
+  }
+
+  const isThanksgiving = (() => {
+    if (month !== 11) return false;
+    const first = new Date(Date.UTC(kickoff.getUTCFullYear(), 10, 1));
+    const firstThursdayOffset = (11 - first.getUTCDay() + 7) % 7;
+    const fourthThursday = 1 + firstThursdayOffset + 21;
+    return dayNum >= fourthThursday && dayNum <= fourthThursday + 2;
+  })();
+  const isChristmas = month === 12 && dayNum === 25;
+  const isBlackFriday = weekdayShort === 'Fri' && month === 11 && dayNum >= 23 && dayNum <= 29;
+  const tag = getPrimetimeTag(iso);
+
+  const roof = weather?.roof ?? null;
+  const expectedClosed = Boolean(weather?.expectedClosed);
+  const stadiumName = String((event as any)?.venue || (event as any)?.stadium || '');
+  const surface = String((weather as any)?.surface || '');
+  const isIndoor =
+    isDomeStadium(stadiumName, surface) ||
+    roof === 'closed' ||
+    (roof === 'retractable' && expectedClosed) ||
+    (event.home_team ? DOME_TEAMS.has(event.home_team) : false);
+
+  const tempF = typeof weather?.temp_f === 'number' ? weather.temp_f : null;
+  const isSaturdayNight = weekdayShort === 'Sat' && hour >= 19;
+  const isPlayoffs = /playoff/i.test(`${(event as any)?.name || ''} ${(event as any)?.short_name || ''} ${(event as any)?.notes || ''}`);
+
+  const network = (() => {
+    if (tag === 'SNF') return 'NBC';
+    if (tag === 'MNF') return 'ESPN';
+    if (tag === 'TNF') return 'Prime Video';
+    return String((event as any)?.broadcast || (event as any)?.network || '');
+  })();
+
+  const emoji = getGameEmoji({
+    isDome: isIndoor,
+    isThanksgiving,
+    isChristmas,
+    isBlackFriday,
+    isPlayoffs,
+    isSaturdayNight,
+    tempF,
+    network: network.toLowerCase(),
+    weekday: weekdayLong.toLowerCase(),
+  });
+
+  const label = emojiLabel(emoji, tag);
+  const emojiProps = label
+    ? { role: 'img' as const, 'aria-label': label, title: label }
+    : { 'aria-hidden': true };
+
+  const networkLogo = emoji === '📺'
+    ? getNetworkLogo(network, weekdayLong) ?? getPrimetimeLogoFromTag(tag)
+    : null;
+
+  return (
+    <span className="inline-flex items-center gap-1 align-middle">
+      <span {...emojiProps}>{emoji}</span>
+      {networkLogo ? (
+        <img src={networkLogo.src} alt={networkLogo.alt} title={networkLogo.alt} className="h-3 w-auto" />
+      ) : null}
+    </span>
+  );
+}
 
 export default function Login() {
   const router = useRouter();
-  const next = typeof router.query.next === 'string' ? router.query.next : '/';
+  const nextParam = typeof router.query.next === 'string' ? router.query.next : '';
+  const next = nextParam.startsWith('/') && nextParam !== '/' ? nextParam : DEFAULT_REDIRECT;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState<string|null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Rotating odds widget
   const [events, setEvents] = useState<Event[]>([]);
   const [rot, setRot] = useState(0);
-  const [wx, setWx] = useState<Record<string, { icon?: string|null; description?: string|null; temp_f?: number|null }>>({});
+  const [wx, setWx] = useState<Record<string, WxInfo>>({});
 
   const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const etTime = (iso:string)=> etFmt.format(new Date(iso)) + ' ET';
@@ -47,20 +230,6 @@ export default function Login() {
     };
     return { home: ml('home'), away: ml('away') };
   }
-  // Dome stadium detection (fixed/retractable roofs)
-  const DOME_TEAMS = new Set<string>([
-    'Arizona Cardinals',
-    'Atlanta Falcons',
-    'New Orleans Saints',
-    'Minnesota Vikings',
-    'Detroit Lions',
-    'Dallas Cowboys',
-    'Houston Texans',
-    'Indianapolis Colts',
-    'Los Angeles Rams',
-    'Los Angeles Chargers',
-    'Las Vegas Raiders',
-  ]);
   const wxEmoji=(icon?:string|null, desc?:string|null, homeTeam?:string, roof?:string|null, expectedClosed?:boolean)=>{
     if ((roof==='closed') || (roof==='retractable' && expectedClosed)) return '🏟️';
     if (homeTeam && DOME_TEAMS.has(homeTeam)) return '🏟️';
@@ -75,64 +244,20 @@ export default function Login() {
     return '🌡️';
   };
 
-  // Primetime/special badges
-  function eventBadge(iso:string){
-    try{
-      const d = new Date(iso);
-      const et = new Intl.DateTimeFormat('en-US',{ timeZone:'America/New_York', weekday:'short', hour:'numeric', hour12:false }).formatToParts(d);
-      const wk = et.find(p=>p.type==='weekday')?.value || '';
-      const hr = Number(et.find(p=>p.type==='hour')?.value || '0');
-      const month = new Intl.DateTimeFormat('en-US',{ timeZone:'America/New_York', month:'numeric' }).format(d);
-      const day = new Intl.DateTimeFormat('en-US',{ timeZone:'America/New_York', day:'numeric' }).format(d);
-      const m = Number(month), dd = Number(day);
-      // Thanksgiving (fourth Thu of Nov)
-      const isThanksgiving = (() => {
-        if (wk !== 'Thu' || m !== 11) return false;
-        // Day of week index in ET
-        const first = new Date(Date.UTC(d.getUTCFullYear(),10,1));
-        const firstThuOffset = (11 - first.getUTCDay()) % 7; // 4-DoW normalized
-        const fourthThu = 1 + firstThuOffset + 21; // 4th Thursday date
-        return dd >= fourthThu && dd <= fourthThu + 2; // allow Fri/Sat spill handling elsewhere
-      })();
-      const isChristmas = (m===12 && dd===25);
-      const isBlackFriday = (wk==='Fri' && m===11 && dd>=23 && dd<=29); // rough BF window
-      const primetime = (hr>=20 && hr<=21);
-      if (isChristmas) {
-        return (
-          <span className="inline-flex items-center align-middle">
-            <span role="img" aria-label="Primetime" title="Primetime">📺</span>
-            <span className="ml-1" role="img" aria-label="Christmas">🎄</span>
-          </span>
-        ) as any;
-      }
-      if (isThanksgiving) {
-        return (
-          <span className="inline-flex items-center align-middle">
-            <span role="img" aria-label="Primetime" title="Primetime">📺</span>
-            <span className="ml-1" role="img" aria-label="Thanksgiving">🦃</span>
-          </span>
-        ) as any;
-      }
-      if (isBlackFriday) return '🛍️';
-      const tag = getPrimetimeTag(iso);
-      if (tag){
-        return (
-          <span className="inline-flex items-center align-middle">
-            <span role="img" aria-label="Primetime" title="Primetime">📺</span>
-            <span className="ml-1 inline-flex items-center rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white" aria-label={`${tag} badge`}>{tag}</span>
-          </span>
-        ) as any;
-      }
-      if (wk==='Sat' && hr>=19) return '⭐'; // Saturday night
-      return '';
-    }catch{return ''}
-  }
-
   // load odds once and rotate every 3s
   useEffect(()=>{
     (async()=>{
       try{
-        const r=await fetch('/api/odds'); const data:Event[]=await r.json();
+        const r = await fetch('/api/odds');
+        const payload = await r.json().catch(() => ({}));
+        const data: Event[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray((payload as any)?.events)
+            ? (payload as any).events
+            : [];
+        if (!data.length && (payload as any)?.error) {
+          console.warn('odds fetch returned error', (payload as any).error);
+        }
         const now=new Date();
         // Upcoming sorted
         const upcoming = data.map(ev=>({ev,dt:new Date(ev.commence_time)}))
@@ -170,17 +295,47 @@ export default function Login() {
     })();
   }, [next, router]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true); setErr(null);
-    try{
-      const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) });
-      const j = await r.json().catch(()=>({}));
-      if (r.ok){ router.replace(next || '/'); return; }
-      // Do not auto-create/reset here. Invite code is for first-time signup only.
-      throw new Error(j?.error || 'Invalid credentials');
-    }catch(e:any){ setErr(e?.message||'Login error'); }
-    finally{ setLoading(false); }
-  };
+  const authenticate = useCallback(async (emailValue: string, passwordValue: string): Promise<boolean> => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email: emailValue, password: passwordValue }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return true;
+    const payload = data as Record<string, unknown>;
+    const message = typeof payload.error === 'string'
+      ? String(payload.error)
+      : 'Invalid credentials';
+    throw new Error(message);
+  }, []);
+
+  const handleSubmit = useCallback(async (e?: FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
+    if (isSubmitting) return;
+    if (!email || !password) {
+      setErr('Email and password required');
+      return;
+    }
+    setIsSubmitting(true);
+    setErr(null);
+    try {
+      await authenticate(email, password);
+      try {
+        const changed = await router.push(next);
+        if (!changed) {
+          window.location.assign(next);
+        }
+      } catch {
+        window.location.assign(next);
+      }
+    } catch (error: any) {
+      setErr(error?.message || 'Login error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [authenticate, email, isSubmitting, next, password, router]);
 
   return (
     <div className="min-h-screen bg-cl-bg text-white flex items-center justify-center p-6">
@@ -194,32 +349,43 @@ export default function Login() {
         </a>
         <div className="w-full bg-[#0f1720] border border-[#1b2735] rounded-xl p-6 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
           <div className="text-lg font-semibold mb-4">Sign in</div>
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={handleSubmit} noValidate className="space-y-3">
             <div>
-              <label className="block text-sm text-gray-300 mb-1">Email</label>
+              <label className="block text-sm text-gray-300 mb-1" htmlFor="login-email">Email</label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={e=>setEmail(e.target.value)}
-                onKeyDown={(e)=>{ if(e.key==='Enter'){ e.currentTarget.form?.requestSubmit(); } }}
                 autoFocus
+                id="login-email"
+                name="email"
+                autoComplete="username"
                 className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-300 mb-1">Password</label>
+              <label className="block text-sm text-gray-300 mb-1" htmlFor="login-password">Password</label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={e=>setPassword(e.target.value)}
-                onKeyDown={(e)=>{ if(e.key==='Enter'){ e.currentTarget.form?.requestSubmit(); } }}
+                id="login-password"
+                name="password"
+                autoComplete="current-password"
                 className="w-full bg-[#0e1520] border border-[#233041] rounded px-3 py-2 text-white"
               />
             </div>
             {err && <div className="text-sm text-rose-400">{err}</div>}
-            <button type="submit" disabled={loading} className="w-full mt-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 rounded px-3 py-2 font-semibold">{loading? 'Signing in…' : 'Sign in'}</button>
+            <button
+              type="submit"
+              id="login-submit"
+              disabled={isSubmitting || !email || !password}
+              className="w-full mt-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 rounded px-3 py-2 font-semibold"
+            >
+              {isSubmitting ? 'Logging in…' : 'Log in'}
+            </button>
           </form>
           <div className="mt-2 text-center">
             <a href="/reset" className="text-xs text-cyan-300 underline">Forgot your password?</a>
@@ -249,12 +415,23 @@ export default function Login() {
                   ? (<span className="text-right text-sm">{spreadTxt} {ml.home!=null? <span className="text-gray-400">({ml.home})</span> : null}</span>)
                   : (<span className="text-right text-sm text-gray-300">O/U {tot ?? '—'}</span>)
                 );
+              const badgeNode = eventBadge(ev, info);
+              const weatherIcon = wxEmoji(info.icon, info.description, ev.home_team, info.roof, info.expectedClosed);
+              const tempDisplay = info.temp_f!=null? `${info.temp_f}°F` : '—';
             return (
               <div className="mt-5 p-4 rounded-lg border border-[#233041] bg-[#0e1520]">
                 <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
                   <span>{etTime(ev.commence_time)}</span>
-                  <span>
-                    {eventBadge(ev.commence_time) || ''} {wxEmoji(info.icon, info.description, ev.home_team, (info as any).roof, (info as any).expectedClosed)} {info.temp_f!=null? `${info.temp_f}°F` : '—'}
+                  <span className="inline-flex items-center gap-1">
+                    {badgeNode}
+                    {(() => {
+                      const weatherLabel = weatherIcon === '🏟️' ? 'Indoor conditions' : null;
+                      const weatherProps = weatherLabel
+                        ? { role: 'img' as const, 'aria-label': weatherLabel, title: weatherLabel }
+                        : { 'aria-hidden': true };
+                      return <span {...weatherProps}>{weatherIcon}</span>;
+                    })()}
+                    <span>{tempDisplay}</span>
                   </span>
                 </div>
               <div className="grid grid-cols-3 gap-2 items-center">

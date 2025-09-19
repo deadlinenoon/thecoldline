@@ -1,63 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Event } from '../lib/oddsTypes';
 import { teamLogoUrl } from '../lib/logos';
+import WindGoalpost, { abbreviateCardinal, describeWindForGoal } from '@/components/weather/WindGoalpost';
 
 function kickoffET(iso: string){
   try{ return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso)); }catch{return iso;}
 }
 
-// Tall vertical football field box with uprights at top/bottom and a wind arrow.
-function FieldWindVertical({ deg, speed, width=90, height=180, thick=4 }: { deg:number|null|undefined; speed:number|null|undefined; width?:number; height?:number; thick?:number }){
-  if (deg==null || speed==null) return null;
-  const toDir = (deg + 180) % 360; // convert FROM -> TO
-  const s = Math.max(0, Math.min(1, (Number(speed)||0)/30));
-  const cX = width/2;
-  const cY = height/2;
-  const len = Math.max(height*0.28, height*0.28 + s*(height*0.30));
-  const tailY = cY + len*0.35;
-  const headY = cY - len*0.65;
-  // Speed bands → color
-  const v = Number(speed)||0;
-  const color = (
-    v >= 35 ? '#a855f7' :     // extreme (purple)
-    v >= 25 ? '#f43f5e' :     // very windy (rose)
-    v >= 18 ? '#f59e0b' :     // windy (amber)
-    v >= 10 ? '#22d3ee' :     // breezy (cyan)
-              '#60a5fa'       // calm (blue)
-  );
-  const postW = Math.max(3, Math.floor(width*0.12));
-  const postH = Math.max(12, Math.floor(height*0.22));
-  const gap = Math.max(3, Math.floor(width*0.08));
-  const yardLines: number[] = [];
-  for (let i=1;i<10;i++){ yardLines.push(Math.round((height*i)/10)); }
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-label={`Wind ${speed} mph @ ${deg}°`}>
-      {/* Field background */}
-      <rect x={0.5} y={0.5} width={width-1} height={height-1} rx={8} ry={8} fill="#0d1624" stroke="#1b2735" />
-      {/* Yard lines */}
-      {yardLines.map((y,i)=> (
-        <line key={i} x1={6} y1={y} x2={width-6} y2={y} stroke="#143044" strokeWidth={1} opacity={0.8} />
-      ))}
-      {/* Uprights top */}
-      <g transform={`translate(${cX}, ${Math.max(6,8)})`}>
-        <rect x={-postW/2 - postW - gap} y={0} width={postW} height={postH} fill="#fbbf24" />
-        <rect x={-postW/2 + gap} y={0} width={postW} height={postH} fill="#fbbf24" />
-        <rect x={-postW - gap} y={postH-2} width={2*postW + 2*gap} height={3} fill="#fbbf24" />
-      </g>
-      {/* Uprights bottom */}
-      <g transform={`translate(${cX}, ${height - Math.max(6,8) - postH})`}>
-        <rect x={-postW/2 - postW - gap} y={0} width={postW} height={postH} fill="#fbbf24" />
-        <rect x={-postW/2 + gap} y={0} width={postW} height={postH} fill="#fbbf24" />
-        <rect x={-postW - gap} y={0} width={2*postW + 2*gap} height={3} fill="#fbbf24" />
-      </g>
-      {/* Wind arrow (rotate around center) */}
-      <g style={{ transform: `rotate(${toDir}deg)`, transformOrigin: `${cX}px ${cY}px` }}>
-        <line x1={cX} y1={tailY} x2={cX} y2={headY} stroke={color} strokeWidth={thick} strokeLinecap="round" />
-        <polygon points={`${cX},${headY} ${cX-7},${headY+14} ${cX+7},${headY+14}`} fill={color} />
-      </g>
-    </svg>
-  );
-}
 
 export default function WeatherBoard(){
   const [events, setEvents] = useState<Event[]>([]);
@@ -98,6 +47,36 @@ export default function WeatherBoard(){
             const roof = (w as any).roof as string|undefined;
             const expectedClosed = !!(w as any).expectedClosed;
             const isIndoors = roof==='closed' || (roof==='retractable' && expectedClosed);
+            const rawWindSpeed = typeof w?.wind_mph === 'number' ? Number(w.wind_mph) : null;
+            const windSpeed = rawWindSpeed != null && Number.isFinite(rawWindSpeed) ? rawWindSpeed : null;
+            const rawWindDeg = typeof w?.wind_deg === 'number' ? Number(w.wind_deg) : null;
+            const windDeg = rawWindDeg != null && Number.isFinite(rawWindDeg) ? rawWindDeg : null;
+            const windDescriptor = describeWindForGoal(windDeg);
+            const windAbbr = abbreviateCardinal(windDescriptor.cardinal);
+            const windLine = windSpeed != null
+              ? (() => {
+                  const mph = Math.round(windSpeed);
+                  const parts: string[] = [`${mph} mph`];
+                  if (windAbbr) parts.push(windAbbr);
+                  if (windDescriptor.toDegrees != null) parts.push(`${Math.round(windDescriptor.toDegrees)}° to`);
+                  if (windDeg != null) parts.push(`from ${Math.round(windDeg)}°`);
+                  return parts.join(' • ');
+                })()
+              : '—';
+            const windNarrative = windSpeed != null
+              ? (() => {
+                  const mph = Math.round(windSpeed);
+                  const phraseParts: string[] = [];
+                  if (windDescriptor.cardinal) phraseParts.push(windDescriptor.cardinal);
+                  if (windDescriptor.target) phraseParts.push(windDescriptor.target);
+                  const degreeSuffix = windDescriptor.toDegrees != null ? ` (${Math.round(windDescriptor.toDegrees)}°)` : '';
+                  const first = phraseParts.length
+                    ? `Wind blowing ${phraseParts.join(' ')} at ${mph} mph${degreeSuffix}.`
+                    : `Wind steady at ${mph} mph${degreeSuffix}.`;
+                  const second = windDeg != null ? `From ${Math.round(windDeg)}°.` : '';
+                  return `${first}${second ? ` ${second}` : ''}`.trim();
+                })()
+              : null;
             return (
               <div key={ev.id} className="p-3 rounded-lg border border-[#1b2735] bg-[#0f1720]">
                 <div className="text-sm font-medium text-gray-100 inline-flex items-center gap-2">
@@ -111,7 +90,7 @@ export default function WeatherBoard(){
                     <div><span className="text-gray-400">Temp:</span> {w?.temp_f ?? '—'}°F</div>
                     {!isIndoors && (
                       <>
-                        <div><span className="text-gray-400">Wind:</span> {w?.wind_mph ?? '—'} mph @ {w?.wind_deg ?? '—'}°</div>
+                        <div><span className="text-gray-400">Wind:</span> {windLine}</div>
                         <div><span className="text-gray-400">Precip:</span> {typeof w?.pop==='number'? `${Math.round(w.pop*100)}%`:'—'}</div>
                       </>
                     )}
@@ -122,8 +101,21 @@ export default function WeatherBoard(){
                   <div className="justify-self-end">
                     {isIndoors ? (
                       <div className="text-4xl" aria-label="Dome">🏟️</div>
+                    ) : windSpeed != null ? (
+                      <div className="text-right">
+                        <WindGoalpost
+                          speed={windSpeed}
+                          directionFrom={windDeg}
+                          width={132}
+                          height={210}
+                          className="ml-auto"
+                        />
+                        {windNarrative ? (
+                          <p className="mt-2 w-[140px] text-right text-[11px] leading-snug text-gray-300 ml-auto">{windNarrative}</p>
+                        ) : null}
+                      </div>
                     ) : (
-                      <FieldWindVertical deg={w?.wind_deg} speed={w?.wind_mph} width={90} height={180} />
+                      <div className="text-xs text-gray-500">Wind data unavailable</div>
                     )}
                   </div>
                 </div>

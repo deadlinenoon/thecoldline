@@ -1,103 +1,180 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { TEAM_ID, toAbbr } from "../../lib/nfl-teams";
-import { logWarn } from "../../lib/logs";
+import { getTeamRedZone } from '@/lib/providers/balldontlie';
+import { getRedZoneMatchupFeed } from '@/lib/providers/redzone';
+import { toAbbr } from '@/lib/nfl-teams';
+import { logWarn } from '@/lib/logs';
 
-async function j<T = any>(u: string) {
-  const r = await fetch(u, { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0" }, cache: "no-store" });
-  if (!r.ok) throw new Error(`${r.status} ${u}`);
-  return r.json() as Promise<T>;
-}
+const DEBUG = true;
 
-type CacheEntry = { ts: number; data: any };
+type RedZoneTeam = {
+  offensePct: number;
+  defensePct: number;
+  offense?: {
+    tdPct?: number | null;
+    fgPct?: number | null;
+    turnoverPct?: number | null;
+  };
+  defense?: {
+    tdPct?: number | null;
+    fgPct?: number | null;
+    takeawayPct?: number | null;
+  };
+};
+
+type RedZoneResponse = { home: RedZoneTeam; away: RedZoneTeam; error?: string; debug?: any };
+
+type CacheEntry = { ts: number; data: RedZoneResponse };
+
 const CACHE = new Map<string, CacheEntry>();
-const TTL = 15 * 60 * 1000;
+const TTL = 10 * 60 * 1000;
 
-function pct(n: any) { const v = Number(n); if (!Number.isFinite(v) || v < 0) return 0; if (v > 100) return 100; return Math.round(v); }
+const ZERO_TEAM: RedZoneTeam = {
+  offensePct: 0,
+  defensePct: 0,
+  offense: { tdPct: null, fgPct: null, turnoverPct: null },
+  defense: { tdPct: null, fgPct: null, takeawayPct: null },
+};
 
-async function teamRZByAbbr(abbr: string) {
-  const id = TEAM_ID[abbr];
-  if (!id) return { offensePct: 0, defensePct: 0, error: 'unknown team' } as any;
-  try {
-    // Prefer team statistics endpoint linked from team page
-    const stats: any = await j(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${id}/statistics`);
-    const cats = stats?.team?.statistics?.splits?.categories || [];
-    const statsFlat = cats.flatMap((c: any) => (c?.statistics || c?.stats || []));
-    function pick(key: string) {
-      const f = statsFlat.find((s: any) => new RegExp(key, 'i').test(String(s?.name || s?.displayName || '')));
-      const v = typeof f?.value === 'number' ? f.value : (typeof f?.displayValue === 'string' ? parseFloat(String(f.displayValue).replace('%', '')) : null);
-      return v;
-    }
-    const offTdPct = pick('^red.?zone.*touchdown.*pct|offense.*red.?zone.*touchdown');
-    const offScorePct = pick('^red.?zone.*scor.*(td|fg).*(pct)|offense.*red.?zone.*scor');
-    const offAtt = pick('^red.?zone.*attempts|offense.*red.?zone.*att');
-    const offTds = pick('^red.?zone.*touchdowns|offense.*red.?zone.*tds?');
-    const defTdPct = pick('^opponent.*red.?zone.*touchdown.*pct|defense.*red.?zone.*touchdown');
-    const defScorePct = pick('^opponent.*red.?zone.*scor.*(td|fg).*(pct)|defense.*red.?zone.*scor');
-    const defAtt = pick('^opponent.*red.?zone.*attempts|defense.*red.?zone.*att');
-    const defTds = pick('^opponent.*red.?zone.*touchdowns|defense.*red.?zone.*tds?');
-    const calcPct = (att: any, tds: any, pctIn: any) => {
-      if (typeof pctIn === 'number' && Number.isFinite(pctIn)) return pctIn;
-      if (typeof att === 'number' && typeof tds === 'number' && att > 0) return (tds / att) * 100;
-      return 0;
-    };
-    const oTd = pct(calcPct(offAtt, offTds, offTdPct));
-    const dTd = pct(calcPct(defAtt, defTds, defTdPct));
-    const oScore = pct(offScorePct);
-    const dScore = pct(defScorePct);
-    const clamp0 = (x:number)=> Math.max(0, Math.min(100, Math.round(x)));
-    const oFg = clamp0(oScore - oTd);
-    const dFg = clamp0(dScore - dTd);
-    const oStop = clamp0(100 - oScore);
-    const dStop = clamp0(100 - dScore);
-    return {
-      // legacy
-      offensePct: oTd,
-      defensePct: dTd,
-      // rich breakdown
-      offense: { tdPct: oTd, fgPct: oFg, stopPct: oStop, scorePct: oScore },
-      defense: { tdPct: dTd, fgPct: dFg, stopPct: dStop, scorePct: dScore }
-    } as any;
-  } catch (e: any) {
-    return { offensePct: 0, defensePct: 0, error: e?.message || 'redzone fetch failed' } as any;
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.replace(/%/g, ''));
+    if (Number.isFinite(parsed)) return parsed;
   }
+  return null;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+function normalizeShare(raw: unknown): number {
+  const val = coerceNumber(raw);
+  if (val === null) return 0;
+  if (val < 0) return 0;
+  if (val <= 1) return val;
+  if (val <= 100) return val / 100;
+  return 1;
+}
+
+function mapLegacyTeam(redZone: Awaited<ReturnType<typeof getTeamRedZone>> | null): RedZoneTeam {
+  const offense = redZone?.offense ?? {};
+  const defense = redZone?.defense ?? {};
+  const td = coerceNumber((offense as any).td);
+  const fg = coerceNumber((offense as any).fg);
+  const turnover = coerceNumber((offense as any).turnover);
+  const tdAllowed = coerceNumber((defense as any).tdAllowed);
+  const fgAllowed = coerceNumber((defense as any).fgAllowed);
+  const takeaway = coerceNumber((defense as any).takeaway);
+  return {
+    offensePct: Math.round(normalizeShare(td) * 100),
+    defensePct: Math.round(normalizeShare(tdAllowed) * 100),
+    offense: { tdPct: td, fgPct: fg, turnoverPct: turnover },
+    defense: { tdPct: tdAllowed, fgPct: fgAllowed, takeawayPct: takeaway },
+  };
+}
+
+function mapFeedTeam(team: Record<string, unknown> | undefined): RedZoneTeam {
+  const offense = (team?.offense ?? {}) as Record<string, unknown>;
+  const defense = (team?.defense ?? {}) as Record<string, unknown>;
+
+  const offenseTd = coerceNumber(
+    offense.touchdown ?? offense.tdPct ?? offense.td_pct ?? offense.td ?? offense.tdRate ?? offense.touchdown_pct,
+  );
+  const offenseFg = coerceNumber(
+    offense.field_goal ?? offense.fieldGoal ?? offense.fgPct ?? offense.fg_pct ?? offense.fg ?? offense.field_goal_pct,
+  );
+  const offenseTo = coerceNumber(
+    offense.turnover ?? offense.turnoverPct ?? offense.turnover_pct ?? offense.takeaway_pct,
+  );
+
+  const defenseTd = coerceNumber(
+    defense.touchdown_allowed ?? defense.tdAllowed ?? defense.td_allowed_pct ?? defense.td_allowed ?? defense.touchdown_pct,
+  );
+  const defenseFg = coerceNumber(
+    defense.field_goal_allowed ?? defense.fgAllowed ?? defense.fg_allowed_pct ?? defense.fieldgoal_allowed_pct,
+  );
+  const defenseTk = coerceNumber(
+    defense.takeaway ?? defense.takeawayPct ?? defense.takeaway_pct ?? defense.takeaways,
+  );
+
+  return {
+    offensePct: Math.round(normalizeShare(offenseTd) * 100),
+    defensePct: Math.round(normalizeShare(defenseTd) * 100),
+    offense: { tdPct: offenseTd, fgPct: offenseFg, turnoverPct: offenseTo },
+    defense: { tdPct: defenseTd, fgPct: defenseFg, takeawayPct: defenseTk },
+  };
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<RedZoneResponse>) {
+  let debugInfoRef: any = null;
   try {
-    const homeIn = toAbbr(String(req.query.home || ''));
-    const awayIn = toAbbr(String(req.query.away || ''));
-    const team = String(req.query.team || '').trim();
+    const homeRaw = String(req.query.home || '').trim();
+    const awayRaw = String(req.query.away || '').trim();
+    const kickoff = typeof req.query.kickoff === 'string' ? req.query.kickoff : null;
+    const homeIn = toAbbr(homeRaw);
+    const awayIn = toAbbr(awayRaw);
+    const debugInfo: any = { params: { homeRaw, awayRaw, homeIn, awayIn, kickoff } };
+    debugInfoRef = debugInfo;
 
-    if (team && !homeIn && !awayIn) {
-      // single-team legacy mode (keep, but normalize if abbr)
-      const ab = toAbbr(team);
-      const key = `rz:one:${ab}`;
-      const now = Date.now();
-      const hit = CACHE.get(key);
-      if (hit && now - hit.ts < TTL) return res.status(200).json(hit.data);
-      const out = await teamRZByAbbr(ab);
-      CACHE.set(key, { ts: now, data: out });
-      return res.status(200).json(out);
+    if (!homeRaw || !awayRaw) {
+      const data: RedZoneResponse = { home: ZERO_TEAM, away: ZERO_TEAM, error: 'missing/invalid params' };
+      const response = DEBUG && req.query.debug ? { ...data, debug: debugInfo } : data;
+      return res.status(400).json(response);
     }
 
-    if (!TEAM_ID[homeIn] || !TEAM_ID[awayIn]) {
-      return res.status(200).json({ home: { offensePct: 0, defensePct: 0 }, away: { offensePct: 0, defensePct: 0 }, error: 'unknown team' });
+    if (!homeIn || !awayIn) {
+      const data: RedZoneResponse = { home: ZERO_TEAM, away: ZERO_TEAM, error: 'unknown team' };
+      const response = DEBUG && req.query.debug ? { ...data, debug: debugInfo } : data;
+      return res.status(200).json(response);
     }
 
-    const key = `rz:${homeIn}:${awayIn}`;
+    const cacheKey = `${homeIn}:${awayIn}:${kickoff ?? 'na'}`;
     const now = Date.now();
-    const hit = CACHE.get(key);
-    if (hit && now - hit.ts < TTL) return res.status(200).json(hit.data);
+    const cached = CACHE.get(cacheKey);
+    if (cached && now - cached.ts < TTL) {
+      const response = DEBUG && req.query.debug ? { ...cached.data, debug: { ...debugInfo, source: 'cache' } } : cached.data;
+      return res.status(200).json(response);
+    }
 
-    const [rh, ra] = await Promise.allSettled([teamRZByAbbr(homeIn), teamRZByAbbr(awayIn)]);
-    const out = {
-      home: rh.status === 'fulfilled' ? rh.value : { offensePct: 0, defensePct: 0 },
-      away: ra.status === 'fulfilled' ? ra.value : { offensePct: 0, defensePct: 0 },
-    };
-    CACHE.set(key, { ts: now, data: out });
-    return res.status(200).json(out);
-  } catch (e: any) {
-    logWarn('redzone', e?.message || e);
-    return res.status(200).json({ home: { offensePct: 0, defensePct: 0 }, away: { offensePct: 0, defensePct: 0 }, error: e?.message || 'redzone route error' });
+    const args = { home: homeRaw || homeIn, away: awayRaw || awayIn, kickoff } as const;
+
+    const feed = await getRedZoneMatchupFeed(args).catch(error => {
+      logWarn('redzone', error instanceof Error ? error.message : String(error));
+      if (DEBUG) debugInfo.feedError = error instanceof Error ? error.message : String(error);
+      return null;
+    });
+
+    if (feed && feed.home && feed.away) {
+      const data: RedZoneResponse = {
+        home: mapFeedTeam(feed.home as Record<string, unknown>),
+        away: mapFeedTeam(feed.away as Record<string, unknown>),
+      };
+      const response = DEBUG && req.query.debug ? { ...data, debug: { ...debugInfo, source: 'feed' } } : data;
+      CACHE.set(cacheKey, { ts: now, data });
+      return res.status(200).json(response);
+    }
+
+    try {
+      const [homeRz, awayRz] = await Promise.all([
+        getTeamRedZone(args, 'home'),
+        getTeamRedZone(args, 'away'),
+      ]);
+      if (!homeRz || !awayRz) {
+        throw new Error('redzone fetch failed');
+      }
+      const payloadBase: RedZoneResponse = { home: mapLegacyTeam(homeRz), away: mapLegacyTeam(awayRz) };
+      const payload = DEBUG && req.query.debug ? { ...payloadBase, debug: { ...debugInfo, source: 'legacy' } } : payloadBase;
+      CACHE.set(cacheKey, { ts: now, data: payloadBase });
+      return res.status(200).json(payload);
+    } catch (error: any) {
+      logWarn('redzone', error?.message || error);
+      if (DEBUG) debugInfo.error = error?.message || String(error);
+      const data: RedZoneResponse = { home: ZERO_TEAM, away: ZERO_TEAM, error: 'redzone fetch failed' };
+      const response = DEBUG && req.query.debug ? { ...data, debug: debugInfo } : data;
+      CACHE.set(cacheKey, { ts: now, data });
+      return res.status(200).json(response);
+    }
+  } catch (error: any) {
+    logWarn('redzone', error?.message || error);
+    const fallback: RedZoneResponse = { home: ZERO_TEAM, away: ZERO_TEAM, error: 'redzone route error' };
+    const response = DEBUG && req.query.debug ? { ...fallback, debug: (debugInfoRef ? { ...debugInfoRef, error: error?.message || String(error) } : { error: error?.message || String(error) }) } : fallback;
+    return res.status(200).json(response);
   }
 }

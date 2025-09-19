@@ -34,7 +34,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
         // opponent filter
         let matched = false;
         if (note.opponentIncludes) {
-          matched = note.opponentIncludes.some(f => oppNorm.includes(norm(f)));
+          matched = note.opponentIncludes.some((fragment: string) => oppNorm.includes(norm(fragment)));
           if (!matched) continue;
         }
         out.push({ text: note.text, matched });

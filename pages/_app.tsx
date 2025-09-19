@@ -1,9 +1,12 @@
-import '../styles/globals.css';
+import "@/styles/globals.css";
+import Header from '@/components/Header';
+import { assertRequiredEnv } from '@/lib/env';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
-import Header from '../components/Header';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+
+assertRequiredEnv();
 
 export default function App({ Component, pageProps }: AppProps){
   const router = useRouter();
@@ -34,7 +37,7 @@ export default function App({ Component, pageProps }: AppProps){
     return ()=>{ cancelled = true; router.events.off('routeChangeComplete', onRoute); };
   }, [router.events]);
   return (
-    <div>
+    <div className="flex min-h-screen flex-col">
       <Head>
         <title>The Cold Line</title>
         <meta name="description" content="Pro grade NFL handicapping dashboard that compresses every factor into one Cold Line number" />
@@ -45,7 +48,11 @@ export default function App({ Component, pageProps }: AppProps){
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Header />
-      <Component {...pageProps} />
+      <main className="flex-1 min-h-[calc(100vh-4rem)] bg-transparent">
+        <div className="mx-auto w-full max-w-6xl px-4 py-8">
+          <Component {...pageProps} />
+        </div>
+      </main>
     </div>
   );
 }

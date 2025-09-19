@@ -12,6 +12,16 @@ declare namespace NodeJS {
     ODDS_API_KEY?: string;
     ODDS_API_KEY_2?: string;
     OPENAI_API_KEY?: string;
+    BALLDONTLIE_ALL_ACCESS_KEY?: string;
+    BALLDONTLIE_ALL_ACCESS_BASE_URL?: string;
+    ALLSPORTS_API_KEY?: string;
+    ALLSPORTS_API_BASE?: string;
+
+    // Public exposure keys (Next.js)
+    NEXT_PUBLIC_BALLEDONTLIE_KEY?: string;
+    NEXT_PUBLIC_BALLEDONTLIE_BASE_URL?: string;
+    NEXT_PUBLIC_ALLSPORTS_KEY?: string;
+    NEXT_PUBLIC_ALLSPORTS_BASE_URL?: string;
 
     // Convex
     CONVEX_DEPLOY_KEY?: string;

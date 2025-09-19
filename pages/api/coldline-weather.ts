@@ -1,7 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { TEAM_CITY } from "@/lib/nflTeams";
 
-type Wx = { city: string; tempF: number; windMph: number; humidity: number; conditions: string; icon: string };
+type Wx = {
+  city: string;
+  tempF: number;
+  windMph: number;
+  windDeg: number | null;
+  humidity: number;
+  conditions: string;
+  icon: string;
+};
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,11 +32,15 @@ export default async function handler(
     if (!r.ok) return res.status(r.status).json({ error: `OpenWeather error ${r.status}` });
     const j = await r.json();
 
+    const windSpeed = typeof j.wind?.speed === "number" ? j.wind.speed : null;
+    const windDeg = typeof j.wind?.deg === "number" ? j.wind.deg : null;
+
     res.status(200).json({
       city,
-      tempF: j.main?.temp ?? 0,
-      windMph: j.wind?.speed ?? 0,
-      humidity: j.main?.humidity ?? 0,
+      tempF: typeof j.main?.temp === "number" ? j.main.temp : 0,
+      windMph: windSpeed ?? 0,
+      windDeg,
+      humidity: typeof j.main?.humidity === "number" ? j.main.humidity : 0,
       conditions: j.weather?.[0]?.main ?? "N/A",
       icon: j.weather?.[0]?.icon ?? "01d"
     });
@@ -37,4 +49,3 @@ export default async function handler(
     res.status(500).json({ error: msg });
   }
 }
-

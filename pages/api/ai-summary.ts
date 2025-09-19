@@ -28,6 +28,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const bullets: string[] = [];
 
+    // Balldontlie matchup context: badges & pace
+    try {
+      const badges = Array.isArray(agent?.matchup?.badges) ? agent.matchup.badges : [];
+      const badgeSnippets = badges.slice(0, 3)
+        .map((badge: any) => [badge?.emoji, badge?.label].filter(Boolean).join(' ').trim())
+        .filter(Boolean);
+      if (badgeSnippets.length) bullets.push(`Context: ${badgeSnippets.join(' / ')}`);
+      const paceHome = agent?.matchup?.home?.pace;
+      const paceAway = agent?.matchup?.away?.pace;
+      if ((paceHome?.offense ?? paceHome?.defense ?? paceAway?.offense ?? paceAway?.defense) != null) {
+        const fmt = (value: any) => (value == null || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(1));
+        bullets.push(
+          `Pace (drives/g) — Home O ${fmt(paceHome?.offense)} / D ${fmt(paceHome?.defense)}; Away O ${fmt(paceAway?.offense)} / D ${fmt(paceAway?.defense)}`
+        );
+      }
+    } catch {}
+
     // Market median and average
     try {
       const ev = agent?.odds;

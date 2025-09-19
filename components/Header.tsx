@@ -1,3 +1,5 @@
+"use client";
+import Image from 'next/image';
 import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -5,6 +7,7 @@ export default function Header(){
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement|null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string|null>(null);
+  const [logoSrc, setLogoSrc] = useState('/logo-ice-script.svg');
   useEffect(()=>{
     function onDoc(e: MouseEvent){ if (!box.current) return; if (!box.current.contains(e.target as any)) setOpen(false); }
     document.addEventListener('mousedown', onDoc); return ()=> document.removeEventListener('mousedown', onDoc);
@@ -22,47 +25,63 @@ export default function Header(){
     return ()=>{ aborted = true; };
   },[]);
   return (
-    <header className="w-full sticky top-0 z-50 bg-slate-900/80 backdrop-blur border-b border-[#1e2a3a]">
-      <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between">
+    <header className="w-full sticky top-0 z-50 border-b border-cl-border/80 bg-[#0b141e]/80 backdrop-blur">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* Left: hamburger menu + logo */}
         <div className="flex items-center gap-2">
           <div className="relative" ref={box}>
             <button
               aria-label="Menu"
-              className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-slate-800/60 border border-slate-700/60 text-cyan-200"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-cl-border/70 bg-[#101b27]/80 text-cyan-200 transition hover:border-cyan-400/50 hover:text-cyan-100"
               onClick={()=> setOpen(v=>!v)}
             >
               <span className="inline-block align-middle" aria-hidden>≡</span>
             </button>
             {open && (
-              <div className="absolute left-0 mt-2 w-48 rounded-lg border border-[#1e2a3a] bg-[#0f1720] shadow-xl p-2">
-                <Link href="/account" className="block px-2 py-1 rounded text-sm text-cyan-200 hover:bg-slate-800/60">Account</Link>
-                <a href="/account#password" className="block px-2 py-1 rounded text-sm text-cyan-200 hover:bg-slate-800/60">Change Password</a>
+              <div className="absolute left-0 mt-2 w-48 rounded-lg border border-cl-border/70 bg-[#0f1720] p-2 shadow-xl shadow-black/40">
+                <Link href="/account" className="block rounded px-3 py-2 text-sm text-cyan-100 hover:bg-[#122233]">Account</Link>
+                <Link href="/account#password" className="block rounded px-3 py-2 text-sm text-cyan-100 hover:bg-[#122233]">Change Password</Link>
                 <button
                   onClick={async()=>{ try{ await fetch('/api/auth/logout',{method:'POST'});}catch{} finally{ window.location.href='/login'; } }}
-                  className="w-full text-left block px-2 py-1 rounded text-sm text-rose-300 hover:bg-slate-800/60"
+                  className="mt-1 block w-full rounded px-3 py-2 text-left text-sm text-rose-300 hover:bg-[#24141f]"
                 >
                   Log out
                 </button>
               </div>
             )}
           </div>
-          <Link href="/" className="flex items-center gap-2 site-logo">
-            <img src="/logo-ice-script.svg" alt="The Cold Line" className="h-6 md:h-7 w-auto block" onError={(e)=>{ (e.currentTarget as HTMLImageElement).src='/logo-coldline-home.svg'; }} />
+          <Link href="/" className="flex items-center gap-2 site-logo text-cyan-200">
+            <Image
+              src={logoSrc}
+              alt="The Cold Line"
+              width={120}
+              height={28}
+              className="h-7 w-auto"
+              priority
+              onError={() => setLogoSrc('/logo-coldline-home.svg')}
+            />
             <span className="sr-only">Home</span>
           </Link>
         </div>
         {/* Right: inline links + profile avatar slot */}
-        <nav className="flex items-center gap-3">
-          <Link href="/oddsboard" className="text-cyan-200 text-sm hover:underline">Odds</Link>
-          <Link href="/weather" className="text-cyan-200 text-sm hover:underline">Weather</Link>
-          <Link href="/tutorial" className="text-cyan-200 text-sm hover:underline">Tutorial</Link>
+        <nav className="flex items-center gap-4 text-sm">
+          <Link href="/coldline" className="text-cyan-200 transition hover:text-white">Cold Line</Link>
+          <Link href="/oddsboard" className="text-cyan-200 transition hover:text-white">Odds</Link>
+          <Link href="/weather" className="text-cyan-200 transition hover:text-white">Weather</Link>
+          <Link href="/tutorial" className="text-cyan-200 transition hover:text-white">Tutorial</Link>
           {/* Profile photo placeholder */}
           <Link href="/account" aria-label="Account" className="ml-1">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile" className="h-8 w-8 rounded-full object-cover border border-slate-600" />
+              <Image
+                src={avatarUrl}
+                alt="Profile"
+                width={36}
+                height={36}
+                className="h-9 w-9 rounded-full border border-cyan-400/50 object-cover shadow shadow-cyan-500/10"
+                unoptimized
+              />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-slate-800 border border-slate-600 overflow-hidden flex items-center justify-center text-xs text-gray-300">You</div>
+              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-cl-border bg-[#101b27] text-xs font-semibold text-cyan-200">You</div>
             )}
           </Link>
         </nav>
