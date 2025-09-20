@@ -13,6 +13,7 @@ import type { TeamPriors } from '@/lib/model/priors';
 import { teamAbbr } from '@/lib/abbr';
 import { toAbbr } from '@/lib/nfl-teams';
 import normalizeTeamName from '@/libs/nfl/teams';
+import { NFLGameReport } from '@/components/reports/NFLGameReport';
 
 export type GameCardProps = {
   home: string;
@@ -137,10 +138,15 @@ const ensureDefense = (defense: RedZoneDefenseMetrics | undefined): RedZoneDefen
 
 const normalizeTeamEntry = (team: RedZoneTeamMetrics | undefined, fallbackId: string): RedZoneTeamMetrics => {
   const base = team ?? { teamId: fallbackId, redZone: createEmptyRedZone() };
-  const teamId = (base.teamId || fallbackId).trim();
+  const rawId = (base.teamId || fallbackId || '').trim();
+  const rawDisplay = (base.displayName || rawId || fallbackId || '').trim();
+  const canonicalName = normalizeTeamName(rawDisplay);
+  const inferredAbbr = toAbbr(canonicalName);
+  const teamId = (inferredAbbr || toAbbr(rawId) || rawId || fallbackId).trim();
+  const displayName = canonicalName || rawDisplay || fallbackId;
   return {
     teamId,
-    displayName: base.displayName ?? teamId,
+    displayName,
     redZone: {
       offense: ensureOffense(base.redZone?.offense),
       defense: ensureDefense(base.redZone?.defense),
@@ -381,10 +387,23 @@ export function GameCard({
 
   const kickoffLabel = kickoff ? new Date(kickoff).toLocaleString() : 'TBD';
 
-  const homeCanonical = normalizeTeamName(home);
-  const awayCanonical = normalizeTeamName(away);
-  const homeAbbr = teamAbbr(homeCanonical).toUpperCase();
-  const awayAbbr = teamAbbr(awayCanonical).toUpperCase();
+  const fallbackHomeCanonical = normalizeTeamName(home);
+  const fallbackAwayCanonical = normalizeTeamName(away);
+  const canonicalHome = normalizeTeamName(
+    redZoneMatchup.teamB.displayName ?? redZoneMatchup.teamB.teamId ?? fallbackHomeCanonical,
+  );
+  const canonicalAway = normalizeTeamName(
+    redZoneMatchup.teamA.displayName ?? redZoneMatchup.teamA.teamId ?? fallbackAwayCanonical,
+  );
+  const displayHome = canonicalHome || redZoneMatchup.teamB.displayName || fallbackHomeCanonical || home;
+  const displayAway = canonicalAway || redZoneMatchup.teamA.displayName || fallbackAwayCanonical || away;
+  const rawHomeId = redZoneMatchup.teamB.teamId || fallbackHomeCanonical || home;
+  const rawAwayId = redZoneMatchup.teamA.teamId || fallbackAwayCanonical || away;
+  const toUpper = (value: string | null | undefined): string => (value ? value.toUpperCase() : '');
+  const resolvedHomeAbbr = toAbbr(canonicalHome) || toAbbr(rawHomeId) || teamAbbr(fallbackHomeCanonical) || rawHomeId;
+  const resolvedAwayAbbr = toAbbr(canonicalAway) || toAbbr(rawAwayId) || teamAbbr(fallbackAwayCanonical) || rawAwayId;
+  const homeAbbr = toUpper(resolvedHomeAbbr);
+  const awayAbbr = toUpper(resolvedAwayAbbr);
   const spreadValue = typeof marketSpread === 'number' ? marketSpread : null;
   const spreadAbs = spreadValue !== null ? formatSpreadValue(spreadValue) : null;
   const spreadFavorite = spreadValue !== null ? (spreadValue <= 0 ? homeAbbr : awayAbbr) : null;
@@ -394,16 +413,24 @@ export function GameCard({
     return `${spreadFavorite} ${spreadAbs}`.trim();
   })();
   const totalLabel = typeof marketTotal === 'number' ? formatTotalValue(marketTotal) : null;
-  const metricsHome = toAbbr(homeCanonical);
-  const metricsAway = toAbbr(awayCanonical);
+  const metricsHome = toUpper(toAbbr(canonicalHome) || toAbbr(rawHomeId) || homeAbbr);
+  const metricsAway = toUpper(toAbbr(canonicalAway) || toAbbr(rawAwayId) || awayAbbr);
 
   const logosHome = teamLogos?.home ?? [];
   const logosAway = teamLogos?.away ?? [];
+  const teamTagHome = { teamId: homeAbbr || rawHomeId, displayName: displayHome, logos: logosHome };
+  const teamTagAway = { teamId: awayAbbr || rawAwayId, displayName: displayAway, logos: logosAway };
   const effectiveInjuries = shouldSelfFetchInjuries ? selfInjuries : injuries ?? null;
   const effectiveInjuriesLoading = shouldSelfFetchInjuries ? selfInjuriesLoading : injuriesLoading;
   const effectiveInjuriesError = shouldSelfFetchInjuries ? selfInjuriesError : injuriesError;
-  const injuriesHomeList = useMemo(() => effectiveInjuries?.home?.list ?? [], [effectiveInjuries?.home?.list]);
-  const injuriesAwayList = useMemo(() => effectiveInjuries?.away?.list ?? [], [effectiveInjuries?.away?.list]);
+  const injuriesHomeList = useMemo(() => {
+    const list = effectiveInjuries?.home?.list;
+    return Array.isArray(list) ? list : [];
+  }, [effectiveInjuries?.home?.list]);
+  const injuriesAwayList = useMemo(() => {
+    const list = effectiveInjuries?.away?.list;
+    return Array.isArray(list) ? list : [];
+  }, [effectiveInjuries?.away?.list]);
   const injuriesHomeCount = typeof effectiveInjuries?.home?.count === 'number' ? effectiveInjuries.home.count : injuriesHomeList.length;
   const injuriesAwayCount = typeof effectiveInjuries?.away?.count === 'number' ? effectiveInjuries.away.count : injuriesAwayList.length;
   const injuriesSources = useMemo(() => {
@@ -418,7 +445,11 @@ export function GameCard({
   }, [effectiveInjuries?.home?.sources, effectiveInjuries?.away?.sources]);
   const awayStatusSummary = useMemo(() => summariseStatuses(injuriesAwayList), [injuriesAwayList]);
   const homeStatusSummary = useMemo(() => summariseStatuses(injuriesHomeList), [injuriesHomeList]);
-  const injuryErrorMessage = effectiveInjuriesError ?? effectiveInjuries?.error ?? null;
+  const injuryErrorMessage = effectiveInjuriesError
+    ? effectiveInjuriesError
+    : effectiveInjuries?.error
+      ? `Injuries API: ${String(effectiveInjuries.error)}`
+      : null;
   const hasInjuryListings = injuriesAwayList.length > 0 || injuriesHomeList.length > 0;
 
   const countLabel = (count: number) => (count === 0 ? 'No listings' : `${count} listed`);
@@ -440,16 +471,14 @@ export function GameCard({
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-base text-slate-100">
             <TeamTag
-              teamId={away}
-              logos={logosAway}
+              {...teamTagAway}
               showCity
               className="text-base text-slate-100"
               logoSize={32}
             />
             <span className="text-sm text-slate-500">@</span>
             <TeamTag
-              teamId={home}
-              logos={logosHome}
+              {...teamTagHome}
               showCity
               className="text-base text-slate-100"
               logoSize={32}
@@ -523,6 +552,13 @@ export function GameCard({
             />
           ) : null}
 
+          <NFLGameReport
+            homeAbbr={homeAbbr}
+            awayAbbr={awayAbbr}
+            kickoffISO={kickoff ?? ''}
+            angle="market-only context • monitor injury/weather updates"
+          />
+
           {hasFamiliarityAuto ? (
             <div className="mt-4 rounded-lg border border-cyan-700/40 bg-cyan-900/10 px-4 py-3 text-xs text-cyan-100">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -535,11 +571,11 @@ export function GameCard({
               </div>
               <div className="mt-2 grid grid-cols-1 gap-2 text-xs md:grid-cols-2">
                 <div className="flex items-center justify-between gap-2">
-                  <TeamTag teamId={away} logos={logosAway} />
+                  <TeamTag {...teamTagAway} />
                   <span className="font-mono text-cyan-100">{formatPoints(familiarityAwayPoints)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <TeamTag teamId={home} logos={logosHome} />
+                  <TeamTag {...teamTagHome} />
                   <span className="font-mono text-cyan-100">{formatPoints(familiarityHomePoints)}</span>
                 </div>
               </div>
@@ -555,11 +591,11 @@ export function GameCard({
               <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">Win Probabilities</div>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <TeamTag teamId={away} logos={logosAway} />
+                  <TeamTag {...teamTagAway} />
                   <span className="text-cyan-200">{formatPct(result.summary.winPctA)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <TeamTag teamId={home} logos={logosHome} />
+                  <TeamTag {...teamTagHome} />
                   <span className="text-cyan-200">{formatPct(result.summary.winPctB)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
@@ -580,15 +616,13 @@ export function GameCard({
                     <span>Margin</span>
                     <span className="inline-flex items-center gap-1 text-xs text-slate-400">
                       <TeamTag
-                        teamId={home}
-                        logos={logosHome}
+                        {...teamTagHome}
                         logoSize={16}
                         className="text-xs text-slate-300"
                       />
                       <span className="text-slate-500">−</span>
                       <TeamTag
-                        teamId={away}
-                        logos={logosAway}
+                        {...teamTagAway}
                         logoSize={16}
                         className="text-xs text-slate-300"
                       />
@@ -682,7 +716,7 @@ export function GameCard({
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <TeamTag teamId={away} logos={logosAway} />
+                  <TeamTag {...teamTagAway} />
                   <span className="text-xs text-slate-400">{countLabel(injuriesAwayCount)}</span>
                 </div>
                 <div className="mt-2 text-xs text-slate-300">
@@ -691,7 +725,7 @@ export function GameCard({
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <TeamTag teamId={home} logos={logosHome} />
+                  <TeamTag {...teamTagHome} />
                   <span className="text-xs text-slate-400">{countLabel(injuriesHomeCount)}</span>
                 </div>
                 <div className="mt-2 text-xs text-slate-300">
@@ -699,13 +733,17 @@ export function GameCard({
                 </div>
               </div>
             </div>
-            {showInjuries && hasInjuryListings ? (
-              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
+            {showInjuries ? (
+              effectiveInjuries?.error ? (
+                <div className="mt-4 rounded border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+                  Injuries API: {String(effectiveInjuries.error)}
+                </div>
+              ) : hasInjuryListings ? (
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
                   <h5 className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
                     <TeamTag
-                      teamId={away}
-                      logos={logosAway}
+                      {...teamTagAway}
                       logoSize={18}
                       className="text-xs text-slate-200"
                     />
@@ -734,8 +772,7 @@ export function GameCard({
                 <div>
                   <h5 className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
                     <TeamTag
-                      teamId={home}
-                      logos={logosHome}
+                      {...teamTagHome}
                       logoSize={18}
                       className="text-xs text-slate-200"
                     />
@@ -761,7 +798,8 @@ export function GameCard({
                     ) : null}
                   </ul>
                 </div>
-              </div>
+                </div>
+              ) : null
             ) : null}
             {injuriesSources.length ? (
               <p className="mt-3 text-[11px] text-slate-500">Sources: {injuriesSources.join(', ')}</p>
@@ -783,9 +821,8 @@ export function GameCard({
                       <th scope="col" className="px-3 py-2 text-left font-semibold">Rank</th>
                       <th scope="col" className="px-3 py-2 text-left font-semibold">
                         <span className="inline-flex items-center gap-1">
-                          <TeamTag
-                            teamId={away}
-                            logos={logosAway}
+                      <TeamTag
+                            {...teamTagAway}
                             logoSize={16}
                             className="text-xs text-slate-200"
                           />
@@ -793,9 +830,8 @@ export function GameCard({
                       </th>
                       <th scope="col" className="px-3 py-2 text-left font-semibold">
                         <span className="inline-flex items-center gap-1">
-                          <TeamTag
-                            teamId={home}
-                            logos={logosHome}
+                      <TeamTag
+                            {...teamTagHome}
                             logoSize={16}
                             className="text-xs text-slate-200"
                           />

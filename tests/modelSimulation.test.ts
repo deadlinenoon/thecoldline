@@ -187,16 +187,40 @@ function testGameCardSnapshot() {
       teamId: 'Green Bay Packers',
       displayName: 'Green Bay Packers',
       redZone: {
-        offense: { td: 0.64, fg: 0.18, turnover: 0.08 },
-        defense: { tdAllowed: 0.52, fgAllowed: 0.28, takeaway: 0.1 },
+        offense: {
+          trips: 40,
+          td: { share: 0.64, count: null },
+          fg: { share: 0.18, count: null },
+          turnover: { share: 0.08, count: null },
+          fail: { share: 0.10, count: null },
+        },
+        defense: {
+          trips: 38,
+          tdAllowed: { share: 0.52, count: null },
+          fgAllowed: { share: 0.28, count: null },
+          takeaway: { share: 0.10, count: null },
+          zero: { share: 0.10, count: null },
+        },
       },
     },
     teamB: {
       teamId: 'Chicago Bears',
       displayName: 'Chicago Bears',
       redZone: {
-        offense: { td: 0.58, fg: 0.24, turnover: 0.06 },
-        defense: { tdAllowed: 0.49, fgAllowed: 0.32, takeaway: 0.08 },
+        offense: {
+          trips: 36,
+          td: { share: 0.58, count: null },
+          fg: { share: 0.24, count: null },
+          turnover: { share: 0.06, count: null },
+          fail: { share: 0.12, count: null },
+        },
+        defense: {
+          trips: 35,
+          tdAllowed: { share: 0.49, count: null },
+          fgAllowed: { share: 0.32, count: null },
+          takeaway: { share: 0.08, count: null },
+          zero: { share: 0.11, count: null },
+        },
       },
     },
   };

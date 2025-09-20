@@ -1,6 +1,7 @@
 "use client";
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import React, { useEffect, useRef, useState } from 'react';
 
 export default function Header(){
@@ -8,6 +9,9 @@ export default function Header(){
   const box = useRef<HTMLDivElement|null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string|null>(null);
   const [logoSrc, setLogoSrc] = useState('/logo-ice-script.svg');
+  const pathFromHook = usePathname();
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : pathFromHook || '';
+  const onAuth = pathname.startsWith('/auth/');
   useEffect(()=>{
     function onDoc(e: MouseEvent){ if (!box.current) return; if (!box.current.contains(e.target as any)) setOpen(false); }
     document.addEventListener('mousedown', onDoc); return ()=> document.removeEventListener('mousedown', onDoc);
@@ -69,6 +73,15 @@ export default function Header(){
           <Link href="/oddsboard" className="text-cyan-200 transition hover:text-white">Odds</Link>
           <Link href="/weather" className="text-cyan-200 transition hover:text-white">Weather</Link>
           <Link href="/tutorial" className="text-cyan-200 transition hover:text-white">Tutorial</Link>
+          {!onAuth && (
+            <Link
+              href="/auth/register"
+              className="inline-flex items-center gap-2 rounded-md border border-cyan-400/60 bg-cyan-500/10 px-3 py-1.5 font-medium text-cyan-100 transition hover:bg-cyan-500/20 hover:text-white non-auth-cta"
+              data-testid="join-now-cta"
+            >
+              Join now
+            </Link>
+          )}
           {/* Profile photo placeholder */}
           <Link href="/account" aria-label="Account" className="ml-1">
             {avatarUrl ? (

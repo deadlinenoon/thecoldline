@@ -1,1 +1,1 @@
-export * from '../../../lib/providers/balldontlie/index';
+export * from '../../../../lib/providers/balldontlie/index';

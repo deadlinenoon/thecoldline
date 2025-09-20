@@ -9,6 +9,8 @@ export type AllAccessFetchOptions = {
   body?: unknown;
   headers?: Record<string, string>;
   cacheTtlMs?: number;
+  onRequest?: (info: { url: string; method: string; searchParams?: SearchParams }) => void;
+  onResponse?: (info: { url: string; method: string; status: number }) => void;
 };
 
 type CacheEntry = {
@@ -48,6 +50,8 @@ export async function balldontlieFetch<T = unknown>(path: string, options: AllAc
     }
   }
 
+  options.onRequest?.({ url, method, searchParams: options.searchParams });
+
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   const apiKey = config.apiKey;
@@ -64,6 +68,8 @@ export async function balldontlieFetch<T = unknown>(path: string, options: AllAc
     body,
     cache: 'no-store',
   });
+
+  options.onResponse?.({ url, method, status: response.status });
 
   let payload: unknown;
   try {
@@ -89,4 +95,3 @@ export async function balldontlieFetch<T = unknown>(path: string, options: AllAc
 export function clearBalldontlieCache(): void {
   cacheStore.clear();
 }
-

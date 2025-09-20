@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { getAllAccessConfig } from '@/lib/env';
 import { getMatchupContext } from '@/lib/providers/balldontlie';
 import { balldontlieFetch } from '@/lib/providers/balldontlie/client';
 import { TEAM_ID, toAbbr } from '@/lib/nfl-teams';
@@ -14,6 +15,62 @@ const ESPN_HEADERS: Record<string, string> = {
   'User-Agent': 'Mozilla/5.0 (compatible; TheColdLine/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
   Accept: 'application/json',
 };
+
+// Canonical 2–3 letter codes the upstream provider expects.
+const TEAM_ALIASES: Record<string, string> = {
+  ARI: 'ARI', ARZ: 'ARI', AZ: 'ARI', ARIZONA: 'ARI', CARDINALS: 'ARI',
+  ATL: 'ATL', ATLANTA: 'ATL', FALCONS: 'ATL',
+  BAL: 'BAL', BALTIMORE: 'BAL', RAVENS: 'BAL',
+  BUF: 'BUF', BUFFALO: 'BUF', BILLS: 'BUF',
+  CAR: 'CAR', CAROLINA: 'CAR', PANTHERS: 'CAR',
+  CHI: 'CHI', CHICAGO: 'CHI', BEARS: 'CHI',
+  CIN: 'CIN', CINCINNATI: 'CIN', BENGALS: 'CIN',
+  CLE: 'CLE', CLEVELAND: 'CLE', BROWNS: 'CLE',
+  DAL: 'DAL', DALLAS: 'DAL', COWBOYS: 'DAL',
+  DEN: 'DEN', DENVER: 'DEN', BRONCOS: 'DEN',
+  DET: 'DET', DETROIT: 'DET', LIONS: 'DET',
+  GB: 'GB', GBP: 'GB', GNB: 'GB', 'GREEN BAY': 'GB', PACKERS: 'GB',
+  HOU: 'HOU', HST: 'HOU', HOUSTON: 'HOU', TEXANS: 'HOU',
+  IND: 'IND', INDY: 'IND', INDIANAPOLIS: 'IND', COLTS: 'IND',
+  JAX: 'JAX', JAC: 'JAX', JACKSONVILLE: 'JAX', JAGS: 'JAX', JAGUARS: 'JAX',
+  KC: 'KC', KCC: 'KC', KAN: 'KC', 'KANSAS CITY': 'KC', KCY: 'KC', CHIEFS: 'KC',
+  LAC: 'LAC', SD: 'LAC', SDG: 'LAC', 'SAN DIEGO': 'LAC', CHARGERS: 'LAC',
+  LAR: 'LAR', STL: 'LAR', 'ST LOUIS': 'LAR', 'ST. LOUIS': 'LAR', RAMS: 'LAR', 'LOS ANGELES RAMS': 'LAR',
+  LV: 'LV', LVR: 'LV', OAK: 'LV', OAKLAND: 'LV', RAIDERS: 'LV', 'LAS VEGAS RAIDERS': 'LV',
+  MIA: 'MIA', MIAMI: 'MIA', DOLPHINS: 'MIA',
+  MIN: 'MIN', MINN: 'MIN', MINNESOTA: 'MIN', VIKINGS: 'MIN',
+  NE: 'NE', NEN: 'NE', NWE: 'NE', 'NEW ENGLAND': 'NE', PATRIOTS: 'NE',
+  NO: 'NO', NOR: 'NO', 'NEW ORLEANS': 'NO', SAINTS: 'NO',
+  NYG: 'NYG', 'NEW YORK GIANTS': 'NYG', GIANTS: 'NYG',
+  NYJ: 'NYJ', 'NEW YORK JETS': 'NYJ', JETS: 'NYJ',
+  PHI: 'PHI', PHL: 'PHI', PHILA: 'PHI', PHILADELPHIA: 'PHI', EAGLES: 'PHI',
+  PIT: 'PIT', PITTSBURGH: 'PIT', STEELERS: 'PIT',
+  SEA: 'SEA', SEATTLE: 'SEA', SEAHAWKS: 'SEA',
+  SF: 'SF', SFO: 'SF', 'SAN FRANCISCO': 'SF', '49ERS': 'SF', NINERS: 'SF',
+  TB: 'TB', TBB: 'TB', TAM: 'TB', 'TAMPA BAY': 'TB', BUCS: 'TB', BUCCANEERS: 'TB',
+  TEN: 'TEN', TNS: 'TEN', TENNESSEE: 'TEN', TITANS: 'TEN',
+  WAS: 'WAS', WSH: 'WAS', WFT: 'WAS', WASHINGTON: 'WAS', COMMANDERS: 'WAS', REDSKINS: 'WAS', 'FOOTBALL TEAM': 'WAS',
+};
+
+function normalizeTeam(q: string): string {
+  const k = (q || '').trim().toUpperCase();
+  return TEAM_ALIASES[k] || k;
+}
+
+function toCanon(input: string): string {
+  const normalized = normalizeTeam(input);
+  if (!normalized) return '';
+  const abbr = toAbbr(normalized);
+  return TEAM_ID[abbr] ? abbr : '';
+}
+
+function firstQueryValue(input: string | string[] | undefined): string {
+  if (Array.isArray(input)) {
+    const [value = ''] = input;
+    return typeof value === 'string' ? value : '';
+  }
+  return typeof input === 'string' ? input : '';
+}
 
 function serialize(list: InjuryItem[], sources: string[] = ['balldontlie-all-access']): InjuryTeamReport {
   const uniqueSources = Array.from(new Set(sources.filter(Boolean))).map(String);
@@ -152,6 +209,12 @@ async function fetchDirectInjuries(teamCandidates: string[], kickoff: string | n
       const payload = await balldontlieFetch<unknown>('sports/nfl/injuries', {
         searchParams,
         cacheTtlMs: TTL,
+        onRequest: ({ url, method, searchParams: params }) => {
+          console.log('[injuries] balldontlie request', { team: candidate, method, url, searchParams: params });
+        },
+        onResponse: ({ url, status, method }) => {
+          console.log('[injuries] balldontlie response', { team: candidate, method, url, status });
+        },
       });
       const rawList = extractInjuryList(payload);
       const normalized = rawList
@@ -175,7 +238,9 @@ async function fetchEspnInjuries(teamAbbr: string): Promise<InjuryItem[]> {
   if (!lookup) return [];
   try {
     const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${lookup}/injuries`;
+    console.log('[injuries] espn request', { url });
     const resp = await fetch(url, { headers: ESPN_HEADERS, cache: 'no-store' });
+    console.log('[injuries] espn response', { url, status: resp.status });
     if (!resp.ok) throw new Error(`espn injuries ${resp.status}`);
     const payload = await resp.json().catch(() => ({}));
     const groups = Array.isArray(payload?.injuries) ? payload.injuries : [];
@@ -237,19 +302,53 @@ async function fetchEspnInjuries(teamAbbr: string): Promise<InjuryItem[]> {
   }
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse<InjuryReport>) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<InjuryReport | { error: string }>,
+) {
   try {
-    const homeRaw = String(req.query.home || '').trim();
-    const awayRaw = String(req.query.away || '').trim();
+    const query = req.query as Record<string, string | string[] | undefined>;
+    const pick = (...keys: string[]): string => {
+      for (const key of keys) {
+        const value = firstQueryValue(query[key]);
+        if (value) return value;
+      }
+      return '';
+    };
+    const teamAInput = pick('teamA', 'home', 'team1');
+    const teamBInput = pick('teamB', 'away', 'team2');
+    const rawA = teamAInput.trim();
+    const rawB = teamBInput.trim();
+    console.log('[injuries] raw:', req.query);
+    const teamA = toCanon(rawA);
+    const teamB = toCanon(rawB);
     const kickoff = typeof req.query.kickoff === 'string' ? req.query.kickoff : null;
-    const homeIn = toAbbr(homeRaw);
-    const awayIn = toAbbr(awayRaw);
-    if (!homeIn || !awayIn) {
-      const data: InjuryReport = { home: serialize([]), away: serialize([]), error: 'unknown team' };
-      return res.status(200).json(data);
+    const { baseUrl: injBaseRaw } = getAllAccessConfig();
+    const INJ_BASE = injBaseRaw.replace(/\/+$/, '');
+    const buildInjuryUrl = (team: string): URL => {
+      const url = new URL(`${INJ_BASE}/sports/nfl/injuries`);
+      if (team) url.searchParams.set('team', team);
+      url.searchParams.set('sport', 'nfl');
+      url.searchParams.set('limit', '40');
+      if (kickoff) url.searchParams.set('kickoff', kickoff);
+      return url;
+    };
+    const urlA = buildInjuryUrl(teamA);
+    const urlB = buildInjuryUrl(teamB);
+    console.log('[injuries] normalized:', { teamA, teamB });
+    console.log('[injuries] INJ_BASE:', INJ_BASE);
+    console.log('[injuries] URL A/B:', urlA.toString(), urlB.toString());
+    const homeOriginal = rawA;
+    const awayOriginal = rawB;
+    const homeRaw = normalizeTeam(homeOriginal);
+    const awayRaw = normalizeTeam(awayOriginal);
+    const homeCanonical = teamA;
+    const awayCanonical = teamB;
+    if (!homeCanonical || !awayCanonical) {
+      return res.status(400).json({ error: 'teamA and teamB are required' });
     }
 
-    const cacheKey = `${homeIn}:${awayIn}:${kickoff ?? 'na'}`;
+    const cacheKey = `${homeCanonical}:${awayCanonical}:${kickoff ?? 'na'}`;
     const now = Date.now();
     const cached = CACHE.get(cacheKey);
     if (cached && now - cached.ts < TTL) {
@@ -258,13 +357,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     let context;
     try {
-      context = await getMatchupContext({ home: homeIn, away: awayIn, kickoff, sport: 'nfl' });
+      context = await getMatchupContext({ home: homeCanonical, away: awayCanonical, kickoff, sport: 'nfl' });
       if (
         (!Array.isArray(context?.home?.injuries) || context.home.injuries.length === 0) &&
         (!Array.isArray(context?.away?.injuries) || context.away.injuries.length === 0) &&
-        (homeRaw || awayRaw)
+        (homeOriginal || awayOriginal)
       ) {
-        const fallback = await getMatchupContext({ home: homeRaw || homeIn, away: awayRaw || awayIn, kickoff, sport: 'nfl' });
+        const fallback = await getMatchupContext({
+          home: homeOriginal || homeRaw || homeCanonical,
+          away: awayOriginal || awayRaw || awayCanonical,
+          kickoff,
+          sport: 'nfl',
+        });
         if (fallback) context = fallback;
       }
     } catch (error) {
@@ -282,14 +386,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         context?.home?.displayName,
         context?.home?.name,
         context?.home?.alias,
+        homeOriginal,
         homeRaw,
-        homeIn,
+        homeCanonical,
       );
       const fallback = await fetchDirectInjuries(homeCandidates, kickoff);
       if (fallback.length) {
         home = serialize(fallback, [...home.sources, FALLBACK_SOURCE]);
-      } else if (homeIn) {
-        const espn = await fetchEspnInjuries(homeIn);
+      } else {
+        const espn = await fetchEspnInjuries(homeCanonical);
         if (espn.length) {
           home = serialize(espn, [...home.sources, ESPN_SOURCE]);
         }
@@ -301,14 +406,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         context?.away?.displayName,
         context?.away?.name,
         context?.away?.alias,
+        awayOriginal,
         awayRaw,
-        awayIn,
+        awayCanonical,
       );
       const fallback = await fetchDirectInjuries(awayCandidates, kickoff);
       if (fallback.length) {
         away = serialize(fallback, [...away.sources, FALLBACK_SOURCE]);
-      } else if (awayIn) {
-        const espn = await fetchEspnInjuries(awayIn);
+      } else {
+        const espn = await fetchEspnInjuries(awayCanonical);
         if (espn.length) {
           away = serialize(espn, [...away.sources, ESPN_SOURCE]);
         }

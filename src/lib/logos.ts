@@ -1,1 +1,5 @@
-export * from '../lib/logos';
+export {
+  teamLogo,
+  teamLogoUrl,
+  teamSlugFromAbbr,
+} from '../../lib/logos';

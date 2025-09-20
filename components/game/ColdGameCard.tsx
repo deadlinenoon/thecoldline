@@ -166,9 +166,7 @@ function WeatherChip({ weather, venue }: { weather?: WeatherPayload; venue?: str
           height={20}
           unoptimized
         />
-      ) : (
-        <span role="img" aria-label="Weather">🌡️</span>
-      )}
+      ) : null}
       <span>{typeof weather.temp_f === 'number' ? `${weather.temp_f}°F` : '—'}</span>
     </span>
   );

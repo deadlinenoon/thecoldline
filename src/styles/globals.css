@@ -80,3 +80,9 @@ body{background:#0b1116;color:#cdd7f6}
 
 /* INSERT-ONCE: site logo sizing */
 .site-logo img { max-height: 28px; width: auto; display: block; }
+
+/* Auth hardening: prevent non-auth overlays stealing clicks */
+.auth-page .non-auth-cta,
+.auth-page [data-non-auth-overlay="true"] {
+  pointer-events: none;
+}

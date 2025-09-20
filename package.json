@@ -6,20 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "test": "TS_NODE_PROJECT=tsconfig.json TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"jsx\":\"react-jsx\"}' node -r ts-node/register/transpile-only -r tsconfig-paths/register tests/modelSimulation.test.ts && TS_NODE_PROJECT=tsconfig.json TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"jsx\":\"react-jsx\"}' node -r ts-node/register/transpile-only -r tsconfig-paths/register tests/redZoneMetrics.test.ts && TS_NODE_PROJECT=tsconfig.json TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"jsx\":\"react-jsx\"}' node -r ts-node/register/transpile-only -r tsconfig-paths/register __tests__/metrics-api.test.ts && TS_NODE_PROJECT=tsconfig.json TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"jsx\":\"react-jsx\"}' node -r ts-node/register/transpile-only -r tsconfig-paths/register __tests__/accordion.test.tsx && npx jest --runInBand",
-    "deploy:prebuilt": "npx --yes vercel deploy --prebuilt --prod --yes",
-    "type-check": "tsc -noEmit",
-    "make:pdf": "node scripts/make-tutorial-pdf.js",
-    "make:video": "node scripts/make-tutorial-video.js",
-    "check:agent": "node scripts/agent-parity.ts || node scripts/agent-parity.js",
-    "guard": "node scripts/no-mock-check.mjs",
-    "typecheck": "tsc --noEmit",
-    "export:travel:2025": "ts-node --compiler-options '{\"module\":\"commonjs\"}' scripts/export-travel-miles-2025.ts",
-    "tag:prod": "node -e \"const d=new Date().toISOString().replace(/[-:T]/g,'').slice(0,13).replace(/(.{8})(.{2})/,'$1-$2');console.log('prod-'+d)\" | xargs -I {} sh -c 'git tag -a {} -m Production && git push origin {}'",
-    "vercel:rollback": "vercel rollback",
-    "vercel:ls": "vercel ls || vercel list",
-    "vercel:promote": "node -e \"console.log('Use: npm run vercel:promote <deployment-url>')\""
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@upstash/redis": "^1.20.0",

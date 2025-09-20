@@ -372,7 +372,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-cl-bg text-white flex items-center justify-center p-6">
-      <div className="w-full max-w-sm flex flex-col items-center">
+      <div className="w-full max-w-sm flex flex-col items-center" data-layer="auth">
         <a href="/" aria-label="Home" className="mb-6 block">
           <Image
             src="/logo-ice-script.svg"
@@ -417,8 +417,9 @@ export default function Login() {
             <button
               type="submit"
               id="login-submit"
+              data-testid="login-submit"
               disabled={isSubmitting || !email || !password}
-              className="w-full mt-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 rounded px-3 py-2 font-semibold"
+              className="relative z-20 w-full mt-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-60 rounded px-3 py-2 font-semibold"
             >
               {isSubmitting ? 'Logging in…' : 'Log in'}
             </button>
