@@ -11,7 +11,7 @@ export const HFA_3_0 = new Set<string>([
   "Seattle Seahawks","Cincinnati Bengals",
   "Baltimore Ravens","Buffalo Bills","Chicago Bears","Dallas Cowboys",
   "Detroit Lions","Green Bay Packers","Kansas City Chiefs","Miami Dolphins",
-  "Minnesota Vikings","New England Patriots","Philadelphia Eagles",
+  "Minnesota Vikings","New England Patriots",
   "Pittsburgh Steelers","San Francisco 49ers","Washington Commanders"
 ]);
 
@@ -25,4 +25,3 @@ export function hfaByTeam(home: string, neutral: boolean) {
 }
 
 export default hfaByTeam;
-

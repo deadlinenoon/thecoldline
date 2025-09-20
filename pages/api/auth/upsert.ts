@@ -1,8 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, isSecure, signJWT } from '../../../lib/auth';
-import { kvAvailable } from '../../../lib/kv';
-import { createUser, verifyUserPassword, findUser } from '../../../lib/userstore';
-import { findUserKV } from '../../../lib/userstore';
+import { adminEnv, isSecure, signJWT } from '@/lib/auth';
+import { kvAvailable } from '@/lib/kv';
+import { createUser, verifyUserPassword, findUser, findUserKV } from '@/lib/userstore';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

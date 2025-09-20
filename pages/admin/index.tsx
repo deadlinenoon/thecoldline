@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 export default function AdminHome(){
@@ -33,14 +35,16 @@ export default function AdminHome(){
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <a href="/admin" aria-label="Admin Home"><img src="/logo-ice-script.svg" alt="The Cold Line" title="The Cold Line" className="h-8 w-auto" /></a>
+            <Link href="/admin" aria-label="Admin Home">
+              <Image src="/logo-ice-script.svg" alt="The Cold Line" title="The Cold Line" className="h-8 w-auto" width={128} height={32} priority />
+            </Link>
             <div>
               <div className="text-xl font-semibold">Admin</div>
               <div className="text-xs text-gray-400">{me.email}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Frontend</a>
+          <Link href="/" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Frontend</Link>
             <button
               onClick={async()=>{ await fetch('/api/auth/logout',{method:'POST'}); router.replace('/login'); }}
               className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm"
@@ -60,10 +64,10 @@ export default function AdminHome(){
               <li>Extend admin for content/feature flags</li>
             </ul>
           </div>
-          <a href="/admin/users" className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720] hover:bg-[#121a27] transition-colors" aria-label="Users">
+          <Link href="/admin/users" className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720] hover:bg-[#121a27] transition-colors" aria-label="Users">
             <div className="text-sm font-semibold text-gray-200 mb-2">Users</div>
             <div className="text-xs text-gray-400">View all signups</div>
-          </a>
+          </Link>
           <InviteCard />
           <WhitelistCard />
           <ConsensusFlagCard />
@@ -197,10 +201,6 @@ function DataHealth(){
     }catch(e:any){ setErr(e?.message||'error'); }
   }
 
-  const Badge=({ok,label}:{ok:boolean|null;label:string})=> (
-    <span className={`px-2 py-1 rounded text-[11px] ${ok==null? 'bg-[#1a2330] text-gray-400' : (ok? 'bg-emerald-600/30 text-emerald-300' : 'bg-rose-600/30 text-rose-300')}`}>{label}</span>
-  );
-
   return (
     <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720]">
       <div className="text-sm font-semibold text-gray-200 mb-2">Data health (by matchup)</div>
@@ -249,14 +249,14 @@ function RecentErrors(){
   const [items,setItems] = useState<{ts:number;slice:string;msg:string}[]>([]);
   const [err,setErr] = useState<string|null>(null);
   useEffect(()=>{
-    let t:any; let stop=false;
+    let stop=false;
     async function load(){
       try{ const r=await fetch('/api/admin/logs',{credentials:'include' as RequestCredentials, cache:'no-store'}); const j=await r.json(); if(!r.ok) throw new Error(j?.error||'error'); if(!stop) setItems(j.items||[]); }
       catch(e:any){ if(!stop) setErr(e?.message||'error'); }
     }
     load();
-    t = setInterval(()=>{ if (typeof document==='undefined' || document.visibilityState==='visible') load(); }, 20000);
-    return ()=>{ stop=true; if(t) clearInterval(t); };
+    const intervalId = setInterval(()=>{ if (typeof document==='undefined' || document.visibilityState==='visible') load(); }, 20000);
+    return ()=>{ stop=true; clearInterval(intervalId); };
   },[]);
   return (
     <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720]">
@@ -473,7 +473,7 @@ function AnalyticsSummary(){
           <div className="text-sm font-semibold text-gray-200">Analytics overview</div>
           <div className="text-[11px] text-gray-500">Hits and signups • rolling deltas</div>
         </div>
-        <a href="/admin/analytics" className="text-xs text-cyan-300 underline" aria-label="Open full analytics">Open full</a>
+        <Link href="/admin/analytics" className="text-xs text-cyan-300 underline" aria-label="Open full analytics">Open full</Link>
       </div>
       {err && <div className="text-xs text-rose-400">{err}</div>}
       {!data && !err && <div className="text-xs text-gray-400">Loading analytics…</div>}

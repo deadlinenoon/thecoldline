@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, verifyJWT, isAdminIdentity, decodeJwtUnsafe } from '../../../lib/auth';
-import { setUserRole } from '../../../lib/userstore';
+import { adminEnv, verifyJWT, isAdminIdentity, decodeJwtUnsafe } from '@/lib/auth';
+import { setUserRole } from '@/lib/userstore';
 
 function parseCookie(h: string|undefined){ const out:Record<string,string>={}; if(!h) return out; for(const p of h.split(';')){ const [k,...r]=p.trim().split('='); if(!k) continue; out[k]=decodeURIComponent(r.join('=')); } return out; }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method!=='POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { secret, email: adminEmail } = adminEnv();
+  const { secret } = adminEnv();
   const cookies = parseCookie(req.headers.cookie);
   const tok = cookies['tcl_sess'];
   let isAdmin=false;

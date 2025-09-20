@@ -8,8 +8,7 @@ export async function getJson<T=any>(url: string, retries = 2, timeoutMs = 10000
       const j = await r.json().catch(()=>({}));
       if (!r.ok) throw new Error(String(j?.error||`HTTP ${r.status}`));
       return j;
-    }catch(e){ if(i===retries) return {}; }
+    }catch{ if(i===retries) return {}; }
   }
   return {};
 }
-

@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export default function Reset(){
   const router = useRouter();
@@ -76,4 +76,3 @@ export default function Reset(){
     </div>
   );
 }
-

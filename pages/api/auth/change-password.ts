@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, verifyJWT, isAdminIdentity } from '../../../lib/auth';
-import { readUsers, writeUsers, findUser } from '../../../lib/userstore';
-import { kvAvailable, kvHGetAll, kvHSet } from '../../../lib/kv';
+import { adminEnv, verifyJWT, isAdminIdentity } from '@/lib/auth';
+import { readUsers, writeUsers } from '@/lib/userstore';
+import { kvAvailable, kvHGetAll, kvHSet } from '@/lib/kv';
 import crypto from 'crypto';
 
 function parseCookie(h: string|undefined){ const out:Record<string,string>={}; if(!h) return out; for(const p of h.split(';')){ const [k,...r]=p.trim().split('='); if(!k) continue; out[k]=decodeURIComponent(r.join('=')); } return out; }
@@ -9,7 +9,7 @@ function parseCookie(h: string|undefined){ const out:Record<string,string>={}; i
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try{
-    const { secret, email: adminEmail } = adminEnv();
+    const { secret } = adminEnv();
     const cookies = parseCookie(req.headers.cookie);
     const tok = cookies['tcl_sess']; if (!tok) return res.status(401).json({ error: 'unauthorized' });
     const payload = verifyJWT(tok, secret); if (!payload) return res.status(401).json({ error: 'unauthorized' });

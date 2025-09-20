@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, season, count: Array.isArray(rows) ? rows.length : 0, rows: rows ?? [] });
   } catch (e: any) {
-    // eslint-disable-next-line no-console
+     
     console.error("/api/travel-miles error", e?.message || e);
     return NextResponse.json({ ok: false, error: "travel-metrics-missing", season, rows: [] }, { status: 200 });
   }

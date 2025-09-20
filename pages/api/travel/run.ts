@@ -40,14 +40,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rsetex(travelTableKey(season), TRAVEL_TTL_SECONDS, table),
     ]);
 
-    // eslint-disable-next-line no-console
+     
     console.log("[travel:run] ok", new Date().toISOString());
-    // eslint-disable-next-line no-console
+     
     console.log("[travel/run] refreshed", { season, week, teams: Object.keys(metrics).length });
 
     return res.status(200).json({ ok: true, season, week, teams: Object.keys(metrics).length });
   } catch (error: any) {
-    // eslint-disable-next-line no-console
+     
     console.error("[travel/run] failure", error?.message || error);
     return res.status(500).json({ ok: false, error: error?.message || "travel run failure" });
   }

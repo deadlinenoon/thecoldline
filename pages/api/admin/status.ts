@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getKV, kvAvailable } from '../../../lib/kv';
+import { getKV, kvAvailable } from '@/lib/kv';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse){
   try{

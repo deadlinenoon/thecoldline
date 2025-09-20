@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { TEAM_ID, toAbbr } from '../../lib/nfl-teams';
+import { TEAM_ID, toAbbr } from '@/lib/nfl-teams';
 
 // Lightweight AI-style fallback: best-effort, deterministic, no external LLM.
 // Supports: type=injuries | redzone | consensus

@@ -5,7 +5,7 @@ import { useEffect } from "react";
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     // Log error on the client for visibility; server logs will capture stack.
-    // eslint-disable-next-line no-console
+     
     console.error("App error boundary:", error?.message, error?.digest);
   }, [error]);
   return (

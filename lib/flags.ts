@@ -1,4 +1,4 @@
-import { kvAvailable, kvGet, kvHSet, kvHGetAll } from './kv';
+import { kvAvailable, kvHSet, kvHGetAll } from './kv';
 
 export async function getFlag(key: string, def=false): Promise<boolean>{
   try{
@@ -15,4 +15,3 @@ export async function getFlag(key: string, def=false): Promise<boolean>{
 export async function setFlag(key: string, val: boolean){
   try{ if (kvAvailable()) await kvHSet('flags', { [key]: val ? '1':'0' }); }catch{}
 }
-

@@ -1,13 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, isSecure, signJWT } from '../../../lib/auth';
-import { createUser, findUser } from '../../../lib/userstore';
-import { findUserKV } from '../../../lib/userstore';
-import { kvAvailable } from '../../../lib/kv';
-import { listInvites, markInviteUsed } from '../../../lib/invites';
-import { isWhitelisted } from '../../../lib/whitelist';
-import { notifyNewUser } from '../../../lib/notify';
-import { getKV } from '../../../lib/kv';
-import { kSignups } from '../../../lib/analytics/keys';
+import { adminEnv, isSecure, signJWT } from '@/lib/auth';
+import { createUser, findUser, findUserKV } from '@/lib/userstore';
+import { kvAvailable, getKV } from '@/lib/kv';
+import { listInvites, markInviteUsed } from '@/lib/invites';
+import { isWhitelisted } from '@/lib/whitelist';
+import { notifyNewUser } from '@/lib/notify';
+import { kSignups } from '@/lib/analytics/keys';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -55,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!valid) return res.status(409).json({ error: 'User already exists. Use password reset.' });
       // With a valid invite code or whitelist, set password and continue
       try{
-        const { setUserPassword } = await import('../../../lib/userstore');
+        const { setUserPassword } = await import('@/lib/userstore');
         await setUserPassword(em, password);
       }catch{}
       const { secret } = adminEnv();
@@ -70,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let user;
     try {
       user = await createUser(em, password, 'user');
-    } catch (e) {
+    } catch {
       // If storage is read-only or KV unavailable, proceed with a session-only user
       user = { email: em, role: 'user' } as any;
     }

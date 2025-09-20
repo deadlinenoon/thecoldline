@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { kvAvailable, kvHGetAll, kvDel } from '../../../lib/kv';
-import { setUserPassword } from '../../../lib/userstore';
+import { kvAvailable, kvHGetAll, kvDel } from '@/lib/kv';
+import { setUserPassword } from '@/lib/userstore';
 
 // Fallback file storage for tokens when KV is not available
 import fs from 'fs';
@@ -43,4 +43,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: e?.message || 'reset error' });
   }
 }
-

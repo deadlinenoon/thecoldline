@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 
 export default function Account(){
@@ -18,7 +19,18 @@ export default function Account(){
   useEffect(()=>{(async()=>{
     const r = await fetch('/api/auth/me'); if (!r.ok){ router.replace('/login?next=/account'); return; }
     const j = await r.json(); setMe(j);
-    try{ const inv = await fetch('/api/auth/invite'); if(inv.ok){ const ij = await inv.json(); setInviteLink(ij.link); } }catch{}
+    try{
+      const inv = await fetch('/api/auth/invite');
+      if(inv.ok){
+        const ij = await inv.json();
+        setInviteLink(ij.link);
+        setInviteErr(null);
+      } else {
+        setInviteErr('Unable to fetch invite link');
+      }
+    }catch{
+      setInviteErr('Unable to fetch invite link');
+    }
     try{ const a = await fetch('/api/profile/avatar', { cache:'no-store' }); if(a.ok && a.status!==204){ const b=await a.blob(); setAvatar(URL.createObjectURL(b)); } }catch{}
   })();},[router]);
 
@@ -38,9 +50,9 @@ export default function Account(){
           <div className="text-sm font-semibold text-gray-200 mb-2">Profile photo</div>
           <div className="flex items-center gap-3">
             {pending ? (
-              <img src={pending} alt="Pending profile" className="h-12 w-12 rounded-full object-cover border border-amber-500/50" />
+              <Image src={pending} alt="Pending profile" className="h-12 w-12 rounded-full object-cover border border-amber-500/50" width={48} height={48} unoptimized />
             ) : avatar ? (
-              <img src={avatar} alt="Profile" className="h-12 w-12 rounded-full object-cover border border-[#233041]" />
+              <Image src={avatar} alt="Profile" className="h-12 w-12 rounded-full object-cover border border-[#233041]" width={48} height={48} unoptimized />
             ) : (
               <div className="h-12 w-12 rounded-full bg-slate-800 border border-[#233041] flex items-center justify-center text-xs text-gray-300">You</div>
             )}

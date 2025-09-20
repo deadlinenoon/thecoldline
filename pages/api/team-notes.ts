@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { TEAM_NOTES, TeamNote } from "@/data/teamNotes";
+import { TEAM_NOTES } from "@/data/teamNotes";
 
 function norm(s:string){ return (s||"").toLowerCase(); }
 

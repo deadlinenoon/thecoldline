@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getJSON, putJSON, setStamp } from "../../../lib/store";
+import { getJSON, putJSON, setStamp } from "@/lib/store";
 import { DateTime } from "luxon";
-import { loadSchedule, loadStayovers, loadTeams, loadVenues } from "../../../lib/io";
-import { buildTravelRows, aggregateYTD } from "../../../lib/computeTravel";
-import { getCompletedThroughWeek, getNextWeek } from "../../../lib/weeks";
+import { loadSchedule, loadStayovers, loadTeams, loadVenues } from "@/lib/io";
+import { buildTravelRows, aggregateYTD } from "@/lib/computeTravel";
+import { getCompletedThroughWeek, getNextWeek } from "@/lib/weeks";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const kind = String(req.query.kind || "ytd");

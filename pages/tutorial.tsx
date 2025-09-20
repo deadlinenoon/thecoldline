@@ -1,8 +1,8 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import React, { useEffect, useState } from "react";
-import { BASE, METRIC_DESC, effectiveRange, humanMetric } from "../lib/metrics";
-import { DENVER, HFA_2_0, HFA_3_0, hfaByTeam } from "../lib/hfa";
+import React, { useEffect } from "react";
+import { BASE, METRIC_DESC, effectiveRange, humanMetric } from "@/lib/metrics";
+import { DENVER, HFA_3_0 } from "@/lib/hfa";
 
 const Icon = {
   ArrowRight: (props: React.SVGProps<SVGSVGElement>) => (
@@ -38,7 +38,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function TutorialPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(()=>{
     const onKey=(e: KeyboardEvent)=>{ if(e.key==='Escape'){ window.location.href='/'; } };
     window.addEventListener('keydown', onKey);
@@ -51,8 +50,8 @@ function TutorialPage() {
         <div className="relative">
           {/* Close button overlay (does not affect header) */}
           <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a href="/" aria-label="Close Tutorial" title="Close Tutorial" className="absolute right-3 top-3 h-8 w-8 rounded-md grid place-items-center border border-cyan-300/50 text-cyan-200 hover:bg-cyan-300/10 focus:outline-none z-50">×</a>
+            { }
+            <Link href="/" aria-label="Close Tutorial" title="Close Tutorial" className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md border border-cyan-300/50 text-cyan-200 hover:bg-cyan-300/10 focus:outline-none z-50">×</Link>
           </div>
         </div>
       </div>

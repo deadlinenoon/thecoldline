@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
-import { kvAvailable, kvHSet, kvHGetAll } from '../../../lib/kv';
-import { readUsers, findUserKV } from '../../../lib/userstore';
-import { sendPasswordResetEmail } from '../../../lib/notify';
+import { kvAvailable, kvHSet } from '@/lib/kv';
+import { readUsers, findUserKV } from '@/lib/userstore';
+import { sendPasswordResetEmail } from '@/lib/notify';
 
 // Fallback file storage for tokens when KV is not available
 import fs from 'fs';
@@ -49,4 +49,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }catch{}
   return res.status(200).json({ ok: true });
 }
-

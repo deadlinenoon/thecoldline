@@ -13,8 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const txt = await fs.readFile(file, 'utf8');
     const j = JSON.parse(txt);
     return res.status(200).json(j);
-  }catch(e:any){
+  }catch{
     return res.status(404).json({ error: 'not found' });
   }
 }
-

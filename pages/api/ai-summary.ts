@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { logWarn } from "@/lib/logs";
 
 type CacheEntry = { ts: number; data: any };
 const CACHE = new Map<string, CacheEntry>();
@@ -18,15 +19,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json(cached.data);
     }
 
-    const proto = (req.headers["x-forwarded-proto"] as string) || "http";
-    const host = req.headers.host;
-    const base = `${proto}://${host}`;
+    const forwardedHost = (req.headers['x-forwarded-host'] as string | undefined)?.trim();
+    const host = forwardedHost || (req.headers.host ?? '').trim() || (process.env.VERCEL_URL ?? '').trim() || '127.0.0.1:3000';
+    const protoHeader = (req.headers['x-forwarded-proto'] as string | undefined)?.trim();
+    const proto = protoHeader || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https');
+    const base = `${proto}://${host.replace(/^https?:\/\//, '')}`;
+
+    const respondWithAgentFailure = (message: string, preview?: string) => {
+      const fallback = {
+        bullets: [`Context unavailable: ${message}`],
+        angle: 'Angle: market-only context • monitor injury/weather updates',
+        fallback: true,
+        ...(preview ? { preview } : {}),
+      };
+      CACHE.set(key, { ts: Date.now(), data: fallback });
+      return res.status(200).json(fallback);
+    };
 
     // Always fetch agent bundle
-    const ares = await fetch(`${base}/api/agent?home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}&kickoff=${encodeURIComponent(kickoff)}`);
-    const agent = await ares.json();
+    const agentRes = await fetch(`${base}/api/agent?home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}&kickoff=${encodeURIComponent(kickoff)}`, {
+      cache: 'no-store',
+    });
+    const agentText = await agentRes.text();
+    let agent: any = {};
+    if (agentText) {
+      try {
+        agent = JSON.parse(agentText);
+      } catch (error: any) {
+        const preview = agentText.slice(0, 200);
+        const note = error?.message ? `${error.message} :: ${preview}` : preview;
+        logWarn('ai-summary-agent-non-json', `${base}/api/agent :: ${note}`);
+        return respondWithAgentFailure('Agent data unavailable (non-JSON response)', preview);
+      }
+    }
+    if (!agentRes.ok) {
+      const message = typeof agent?.error === 'string' ? agent.error : `Agent upstream error ${agentRes.status}`;
+      logWarn('ai-summary-agent-http', `${base}/api/agent :: ${message}`);
+      return respondWithAgentFailure(message);
+    }
 
     const bullets: string[] = [];
+
+    if (typeof agent?.warning === 'string' && agent.warning.trim()) {
+      bullets.push(`Warning: ${agent.warning.trim()}`);
+    }
 
     // Balldontlie matchup context: badges & pace
     try {
@@ -100,7 +136,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (h2h?.revenge?.team) angleParts.push('revenge factor');
     const angle = angleParts.length ? `Angle: ${angleParts.slice(0,3).join(' • ')}` : 'Angle: blend market + context adjustments';
 
-    const out = { bullets, angle };
+    const out = {
+      bullets,
+      angle,
+      fallbackUsed: Boolean(agent?.fallbackUsed),
+    };
     CACHE.set(key, { ts: now, data: out });
     return res.status(200).json(out);
   } catch (e: any) {

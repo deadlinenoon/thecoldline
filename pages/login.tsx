@@ -1,4 +1,6 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import type { Event } from '@/lib/oddsTypes';
 import { getPrimetimeTag } from '@/lib/nfl/primetime';
@@ -26,6 +28,8 @@ type WxInfo = {
   temp_f?: number | null;
   roof?: string | null;
   expectedClosed?: boolean;
+  surface?: string | null;
+  stadium?: string | null;
 };
 
 const DOME_KEYWORDS = [
@@ -46,6 +50,19 @@ const isDomeStadium = (stadiumName = '', surface = ''): boolean => {
   if (surf === 'dome') return true;
   if (DOME_KEYWORDS.some(keyword => name.includes(keyword.toLowerCase()))) return true;
   return false;
+};
+
+const isIndoorEvent = (event: Event, weather?: WxInfo): boolean => {
+  const roof = weather?.roof ?? null;
+  const expectedClosed = Boolean(weather?.expectedClosed);
+  const stadiumName = String((event as any)?.venue || (event as any)?.stadium || weather?.stadium || '');
+  const surface = String(weather?.surface || (event as any)?.surface || '');
+  return (
+    isDomeStadium(stadiumName, surface) ||
+    roof === 'closed' ||
+    (roof === 'retractable' && expectedClosed) ||
+    (event.home_team ? DOME_TEAMS.has(event.home_team) : false)
+  );
 };
 
 const emojiLabel = (emoji: string, tag: PrimetimeTag | null): string | null => {
@@ -133,15 +150,7 @@ function eventBadge(event: Event, weather?: WxInfo) {
   const isBlackFriday = weekdayShort === 'Fri' && month === 11 && dayNum >= 23 && dayNum <= 29;
   const tag = getPrimetimeTag(iso);
 
-  const roof = weather?.roof ?? null;
-  const expectedClosed = Boolean(weather?.expectedClosed);
-  const stadiumName = String((event as any)?.venue || (event as any)?.stadium || '');
-  const surface = String((weather as any)?.surface || '');
-  const isIndoor =
-    isDomeStadium(stadiumName, surface) ||
-    roof === 'closed' ||
-    (roof === 'retractable' && expectedClosed) ||
-    (event.home_team ? DOME_TEAMS.has(event.home_team) : false);
+  const isIndoor = isIndoorEvent(event, weather);
 
   const tempF = typeof weather?.temp_f === 'number' ? weather.temp_f : null;
   const isSaturdayNight = weekdayShort === 'Sat' && hour >= 19;
@@ -179,7 +188,15 @@ function eventBadge(event: Event, weather?: WxInfo) {
     <span className="inline-flex items-center gap-1 align-middle">
       <span {...emojiProps}>{emoji}</span>
       {networkLogo ? (
-        <img src={networkLogo.src} alt={networkLogo.alt} title={networkLogo.alt} className="h-3 w-auto" />
+        <Image
+          src={networkLogo.src}
+          alt={networkLogo.alt}
+          title={networkLogo.alt}
+          className="h-3 w-auto"
+          width={48}
+          height={12}
+          unoptimized
+        />
       ) : null}
     </span>
   );
@@ -198,10 +215,10 @@ export default function Login() {
   const [rot, setRot] = useState(0);
   const [wx, setWx] = useState<Record<string, WxInfo>>({});
 
-  const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const etTime = (iso:string)=> etFmt.format(new Date(iso)) + ' ET';
-  const dowFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
-  const isMonET = (iso:string)=> dowFmt.format(new Date(iso)) === 'Mon';
+  const etFmt = useMemo(() => new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }), []);
+  const etTime = useCallback((iso:string)=> `${etFmt.format(new Date(iso))} ET`, [etFmt]);
+  const weekdayFmt = useMemo(() => new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }), []);
+  const isMonET = useCallback((iso:string)=> weekdayFmt.format(new Date(iso)) === 'Mon', [weekdayFmt]);
 
   // helpers to compute market
   function homeSpread(ev: Event): number|null {
@@ -222,7 +239,6 @@ export default function Login() {
     if(!pts.length) return null; pts.sort((a,b)=>a-b); const mid=Math.floor(pts.length/2); const med= pts.length%2? pts[mid] : (pts[mid-1]+pts[mid])/2; return Number(med.toFixed(1));
   }
   function moneyline(ev:Event){
-    const toProb=(o:number|null)=>{ if(o==null) return null; return o>0? 100/(o+100) : (-o)/((-o)+100) };
     const ml=(side:'home'|'away')=>{
       const prices:number[]=[];
       for(const b of ev.bookmakers||[]){ const m=b.markets?.find((mm:any)=>mm.key==='h2h'); if(!m) continue; const o=(m.outcomes||[]).find((oo:any)=>oo.name===(side==='home'? ev.home_team : ev.away_team)); if(typeof o?.price==='number') prices.push(o.price); }
@@ -230,10 +246,10 @@ export default function Login() {
     };
     return { home: ml('home'), away: ml('away') };
   }
-  const wxEmoji=(icon?:string|null, desc?:string|null, homeTeam?:string, roof?:string|null, expectedClosed?:boolean)=>{
-    if ((roof==='closed') || (roof==='retractable' && expectedClosed)) return '🏟️';
-    if (homeTeam && DOME_TEAMS.has(homeTeam)) return '🏟️';
-    const code=icon||''; const d=(desc||'').toLowerCase();
+  const wxEmoji = (event: Event, weather?: WxInfo) => {
+    if (isIndoorEvent(event, weather)) return '🏟️';
+    const code = weather?.icon || '';
+    const d = (weather?.description || '').toLowerCase();
     if(code.startsWith('01')||/clear/.test(d)) return '☀️';
     if(code.startsWith('02')||/mainly|few/.test(d)) return '🌤️';
     if(code.startsWith('03')||code.startsWith('04')||/cloud/.test(d)) return '☁️';
@@ -265,7 +281,7 @@ export default function Login() {
           .sort((a,b)=> a.dt.getTime() - b.dt.getTime());
         // Find this MNF (first Monday among upcoming)
         const firstMon = upcoming.find(x=> isMonET(x.ev.commence_time))?.dt || null;
-        let start = now; let end: Date;
+        const start = now; let end: Date;
         if (firstMon && now.getTime() < firstMon.getTime()) {
           end = firstMon;
         } else if (firstMon) {
@@ -280,12 +296,29 @@ export default function Login() {
         setEvents(windowed);
       }catch{}
     })();
-  },[]);
+  },[isMonET]);
   useEffect(()=>{ const id=setInterval(()=> setRot(r=> (r+1) % Math.max(1, events.length)), 3000); return ()=>clearInterval(id); },[events.length]);
   useEffect(()=>{
     // prefetch weather for current card
     const ev=events[rot]; if(!ev) return; if(wx[ev.id]) return;
-    (async()=>{ try{ const r=await fetch(`/api/weather?home=${encodeURIComponent(ev.home_team)}&kickoff=${encodeURIComponent(ev.commence_time)}`); const j=await r.json(); setWx(prev=>({...prev,[ev.id]:{ icon:j?.icon??null, description:j?.description??null, temp_f:j?.temp_f??null, roof: j?.roof ?? null, expectedClosed: !!j?.expectedClosed }})); }catch{} })();
+    (async()=>{
+      try{
+        const r=await fetch(`/api/weather?home=${encodeURIComponent(ev.home_team)}&kickoff=${encodeURIComponent(ev.commence_time)}`);
+        const j=await r.json();
+        setWx(prev=>({
+          ...prev,
+          [ev.id]: {
+            icon: j?.icon ?? null,
+            description: j?.description ?? null,
+            temp_f: j?.temp_f ?? null,
+            roof: j?.roof ?? null,
+            expectedClosed: !!j?.expectedClosed,
+            surface: j?.surface ?? null,
+            stadium: j?.stadium ?? null,
+          },
+        }));
+      }catch{}
+    })();
   },[events,rot,wx]);
 
   useEffect(() => {
@@ -341,10 +374,13 @@ export default function Login() {
     <div className="min-h-screen bg-cl-bg text-white flex items-center justify-center p-6">
       <div className="w-full max-w-sm flex flex-col items-center">
         <a href="/" aria-label="Home" className="mb-6 block">
-          <img
+          <Image
             src="/logo-ice-script.svg"
             alt="The Cold Line"
             className="h-24 w-auto md:h-32 lg:h-40 drop-shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+            width={320}
+            height={128}
+            priority
           />
         </a>
         <div className="w-full bg-[#0f1720] border border-[#1b2735] rounded-xl p-6 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
@@ -388,7 +424,7 @@ export default function Login() {
             </button>
           </form>
           <div className="mt-2 text-center">
-            <a href="/reset" className="text-xs text-cyan-300 underline">Forgot your password?</a>
+            <Link href="/reset" className="text-xs text-cyan-300 underline">Forgot your password?</Link>
           </div>
           <div className="mt-4">
             <a
@@ -416,7 +452,7 @@ export default function Login() {
                   : (<span className="text-right text-sm text-gray-300">O/U {tot ?? '—'}</span>)
                 );
               const badgeNode = eventBadge(ev, info);
-              const weatherIcon = wxEmoji(info.icon, info.description, ev.home_team, info.roof, info.expectedClosed);
+              const weatherIcon = wxEmoji(ev, info);
               const tempDisplay = info.temp_f!=null? `${info.temp_f}°F` : '—';
             return (
               <div className="mt-5 p-4 rounded-lg border border-[#233041] bg-[#0e1520]">

@@ -238,7 +238,7 @@ function makeFallbackKey(teamA: SimTeam, teamB: SimTeam): string {
 }
 
 export function simulateClassic(options: SimulationOptions & { fallback?: ClassicFallbackInput }): SimulationResult {
-  const { teamA, teamB, n, seed, roundToFootballGrid } = options;
+  const { n, seed, roundToFootballGrid } = options;
   const fallback = options.fallback ?? options.classicFallback ?? {};
   const rng = createRng(seed);
 

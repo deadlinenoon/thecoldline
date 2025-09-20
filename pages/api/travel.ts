@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { metrics } = await buildTravelMetrics(season, week);
       cache = metrics;
       await rsetex(cacheKey, TRAVEL_TTL_SECONDS, metrics);
-    } catch (error) {
+    } catch {
       cache = cache ?? {};
     }
   }

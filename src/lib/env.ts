@@ -1,6 +1,30 @@
 const DEFAULT_ALL_ACCESS_BASE_URL = 'https://all-access.balldontlie.io/v1';
 const DEFAULT_PUBLIC_ALL_ACCESS_BASE_URL = 'https://assets.balldontlie.io';
 
+function stripTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function normalizeAllAccessBaseUrl(raw: string, fallback: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return fallback;
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname.includes('all-access.balldontlie.io')) {
+      const path = stripTrailingSlash(url.pathname);
+      if (!path || path === '') {
+        url.pathname = '/v1';
+      } else if (!path.startsWith('/v1')) {
+        url.pathname = `/v1${path.startsWith('/') ? path : `/${path}`}`;
+      }
+      return stripTrailingSlash(url.toString());
+    }
+    return stripTrailingSlash(trimmed);
+  } catch {
+    return fallback;
+  }
+}
+
 const requiredKeys = [
   'ODDS_API_KEY',
   'OPENWEATHERMAP_API_KEY',
@@ -24,7 +48,11 @@ let envChecked = false;
 export const HAVE = {
   ODDS: Boolean(process.env.ODDS_API_KEY),
   UPSTASH: Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN),
-  BALLDONTLIE: Boolean(process.env.BALLDONTLIE_ALL_ACCESS_KEY || process.env.ALLSPORTS_API_KEY),
+  BALLDONTLIE: Boolean(
+    process.env.BALLDONTLIE_API_KEY ||
+    process.env.BALLDONTLIE_ALL_ACCESS_KEY ||
+    process.env.ALLSPORTS_API_KEY
+  ),
 };
 
 export type AllAccessConfig = {
@@ -35,15 +63,18 @@ export type AllAccessConfig = {
 };
 
 export function getAllAccessConfig(): AllAccessConfig {
-  const baseUrl =
+  const rawBaseUrl =
     (process.env.BALLDONTLIE_ALL_ACCESS_BASE_URL || '').trim() ||
     (process.env.ALLSPORTS_API_BASE || '').trim() ||
     DEFAULT_ALL_ACCESS_BASE_URL;
-  const publicBaseUrl =
+  const rawPublicBaseUrl =
     (process.env.NEXT_PUBLIC_BALLEDONTLIE_BASE_URL || '').trim() ||
     (process.env.NEXT_PUBLIC_ALLSPORTS_BASE_URL || '').trim() ||
     DEFAULT_PUBLIC_ALL_ACCESS_BASE_URL;
+  const baseUrl = normalizeAllAccessBaseUrl(rawBaseUrl, DEFAULT_ALL_ACCESS_BASE_URL);
+  const publicBaseUrl = normalizeAllAccessBaseUrl(rawPublicBaseUrl, DEFAULT_PUBLIC_ALL_ACCESS_BASE_URL);
   const apiKey =
+    (process.env.BALLDONTLIE_API_KEY || '').trim() ||
     (process.env.BALLDONTLIE_ALL_ACCESS_KEY || '').trim() ||
     (process.env.ALLSPORTS_API_KEY || '').trim() ||
     null;
@@ -76,12 +107,12 @@ export function assertRequiredEnv(): void {
     throw new Error(message);
   }
   if (process.env.NODE_ENV === 'production') {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[env] ${message}`);
     return;
   }
   if (process.env.NODE_ENV !== 'test') {
-    // eslint-disable-next-line no-console
+     
     console.warn(`[env] ${message}`);
   }
 }

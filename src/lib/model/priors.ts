@@ -96,10 +96,6 @@ const PLAYS_PER_DRIVE_ESTIMATE = 6.1;
 
 const normalizeTeam = (input: string) => normalizeTeamFn(input);
 
-function normalizeKey(input: string): string {
-  return normalizeTeam(input ?? '').trim();
-}
-
 function lookupSample(map: TeamSampleMap | undefined, team: string): TeamSampleMetrics | undefined {
   if (!map) return undefined;
   const direct = map[team];

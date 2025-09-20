@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 type Row = { email:string; role:string; createdAt?:string };
@@ -23,12 +25,14 @@ export default function Users(){
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <a href="/admin" aria-label="Admin Home"><img src="/logo-ice-script.svg" className="h-8 w-auto" /></a>
+            <Link href="/admin" aria-label="Admin Home">
+              <Image src="/logo-ice-script.svg" alt="The Cold Line" className="h-8 w-auto" width={128} height={32} priority />
+            </Link>
             <div className="text-xl font-semibold">Users</div>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Frontend</a>
-            <a href="/admin" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Admin</a>
+            <Link href="/" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Frontend</Link>
+            <Link href="/admin" className="px-3 py-2 rounded bg-[#1a2330] hover:bg-[#202c3b] text-sm">Admin</Link>
           </div>
         </div>
         <div className="p-4 rounded-lg border border-[#1b2735] bg-[#0f1720]">

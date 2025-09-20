@@ -1,3 +1,38 @@
+const remotePatterns = [
+  {
+    protocol: 'https',
+    hostname: 'assets.balldontlie.io',
+  },
+  {
+    protocol: 'https',
+    hostname: 'cdn.balldontlie.io',
+  },
+  {
+    protocol: 'https',
+    hostname: 'openweathermap.org',
+    pathname: '/img/wn/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'static.www.nfl.com',
+    pathname: '/**',
+  },
+];
+
+const logoCdn = process.env.NEXT_PUBLIC_LOGO_CDN;
+if (logoCdn) {
+  try {
+    const url = new URL(logoCdn);
+    remotePatterns.push({
+      protocol: url.protocol.replace(':', ''),
+      hostname: url.hostname,
+      pathname: '/**',
+    });
+  } catch (error) {
+    console.warn('[next.config] Invalid NEXT_PUBLIC_LOGO_CDN', error);
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
@@ -7,16 +42,16 @@ const nextConfig = {
     recharts: { transform: 'recharts/es6/{{member}}' },
   },
   images: {
-    remotePatterns: [
+    remotePatterns,
+  },
+  async redirects() {
+    return [
       {
-        protocol: 'https',
-        hostname: 'assets.balldontlie.io',
+        source: '/',
+        destination: '/coldline',
+        permanent: true,
       },
-      {
-        protocol: 'https',
-        hostname: 'cdn.balldontlie.io',
-      },
-    ],
+    ];
   },
 };
 module.exports = nextConfig;

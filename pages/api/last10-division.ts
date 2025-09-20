@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { sameDivision } from "../../lib/divisions";
+import { sameDivision } from "@/lib/divisions";
 
 async function j<T=any>(u:string){ const r=await fetch(u,{headers:{Accept:"application/json","User-Agent":"Mozilla/5.0 (compatible; TCL/1.0)"},cache:"no-store"}); if(!r.ok) throw new Error(`${r.status} ${u}`); return r.json() as Promise<T>; }
 const norm=(s:string)=> (s||"").toLowerCase();
@@ -52,4 +52,3 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
     return res.status(200).json({ team, record:`${w}-${l}${t?('-'+t):''}`, games:last10 });
   }catch(e:any){ return res.status(500).json({ error:e?.message||'last10-division error' }); }
 }
-

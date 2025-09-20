@@ -14,6 +14,7 @@ declare namespace NodeJS {
     OPENAI_API_KEY?: string;
     BALLDONTLIE_ALL_ACCESS_KEY?: string;
     BALLDONTLIE_ALL_ACCESS_BASE_URL?: string;
+    BALLDONTLIE_API_KEY?: string;
     ALLSPORTS_API_KEY?: string;
     ALLSPORTS_API_BASE?: string;
 

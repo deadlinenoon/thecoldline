@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import type { Event } from '../lib/oddsTypes';
-import { teamLogoUrl } from '../lib/logos';
+import Image from 'next/image';
+import type { Event } from '@/lib/oddsTypes';
+import { teamLogoUrl } from '@/lib/logos';
 import WindGoalpost, { abbreviateCardinal, describeWindForGoal } from '@/components/weather/WindGoalpost';
 
 function kickoffET(iso: string){
@@ -80,9 +81,27 @@ export default function WeatherBoard(){
             return (
               <div key={ev.id} className="p-3 rounded-lg border border-[#1b2735] bg-[#0f1720]">
                 <div className="text-sm font-medium text-gray-100 inline-flex items-center gap-2">
-                  <img src={teamLogoUrl(ev.away_team)} alt="" className="h-4 w-4" onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }} /> {ev.away_team}
+                  <Image
+                    src={teamLogoUrl(ev.away_team)}
+                    alt=""
+                    className="h-4 w-4"
+                    width={16}
+                    height={16}
+                    unoptimized
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  />
+                  {ev.away_team}
                   <span className="text-gray-400">@</span>
-                  <img src={teamLogoUrl(ev.home_team)} alt="" className="h-4 w-4" onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }} /> {ev.home_team}
+                  <Image
+                    src={teamLogoUrl(ev.home_team)}
+                    alt=""
+                    className="h-4 w-4"
+                    width={16}
+                    height={16}
+                    unoptimized
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  />
+                  {ev.home_team}
                 </div>
                 <div className="text-xs text-gray-400">Kickoff: {kickoffET(ev.commence_time)}</div>
                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-3 items-center">

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, verifyJWT } from '../../../lib/auth';
+import { adminEnv, verifyJWT } from '@/lib/auth';
 
 function parseCookie(h: string|undefined) {
   const out: Record<string,string> = {};

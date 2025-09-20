@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getFlag } from "../../lib/flags";
+import { getFlag } from "@/lib/flags";
 
 const norm = (s:string)=> (s||"").toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 const SAO_URL = process.env.SAO_SCRAPE_URL || "https://www.scoresandodds.com/nfl/consensus";
@@ -18,6 +18,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
       return { bets, handle, source: out.source, home: bets.home, away: bets.away };
     }
     let saoHandle: { home:number|null, away:number|null } | null = null;
+    let saoBets: { home:number|null, away:number|null } | null = null;
 
     // ScoresAndOdds primary attempt (HANDLE only; do not return yet)
     try{
@@ -47,8 +48,7 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
         const betsIdx = block.indexOf('bets');
         const betsCtx = betsIdx>=0 ? block.slice(betsIdx, betsIdx+1600) : block;
         const betsPick = pickNear(betsCtx);
-        let betsAway: number|null = betsPick.away;
-        let betsHome: number|null = betsPick.home;
+        saoBets = { home: betsPick.home ?? null, away: betsPick.away ?? null };
         // Handle context: prefer region after keyword 'handle'
         let handleAway: number|null = null, handleHome: number|null = null;
         const handleIdx = block.indexOf('handle');
@@ -72,7 +72,8 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
         if (Array.isArray(odds)){
           const ev = odds.find((e:any)=> e?.home_team===home && e?.away_team===away);
           if (ev){
-            let homeP: number[] = [], awayP: number[] = [];
+            const homeP: number[] = [];
+            const awayP: number[] = [];
             for(const b of ev.bookmakers||[]){
               const m = (b.markets||[]).find((mm:any)=>mm.key==='h2h');
               const ho = m?.outcomes?.find((o:any)=>o.name===home); const ao = m?.outcomes?.find((o:any)=>o.name===away);
@@ -150,7 +151,8 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
       if (Array.isArray(odds)){
         const ev = odds.find((e:any)=> e?.home_team===home && e?.away_team===away);
         if (ev){
-          let homeP: number[] = [], awayP: number[] = [];
+            const homeP: number[] = [];
+            const awayP: number[] = [];
           for(const b of ev.bookmakers||[]){
             const m = (b.markets||[]).find((mm:any)=>mm.key==='h2h');
             const ho = m?.outcomes?.find((o:any)=>o.name===home);
@@ -176,7 +178,9 @@ export default async function handler(req:NextApiRequest,res:NextApiResponse){
       const r3 = await fetch(`${base}/api/ai-scrape?type=consensus&home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`, { cache:'no-store' });
       const j3 = await r3.json(); if (r3.ok) return res.status(200).json(shape({ source: String(j3?.source||'ai'), bets: j3?.bets||{home:j3?.home??null, away:j3?.away??null}, handle: j3?.handle||{home:null,away:null} }));
     }catch{}
-    return res.status(200).json(shape({ source: 'unavailable', bets: { home: null, away: null }, handle: { home: null, away: null } }));
+    const finalBets = saoBets ?? { home: null, away: null };
+    const finalHandle = saoHandle ?? { home: null, away: null };
+    return res.status(200).json(shape({ source: 'unavailable', bets: finalBets, handle: finalHandle }));
   }catch(e:any){
     return res.status(500).json({error:e?.message||"consensus scrape error"});
   }

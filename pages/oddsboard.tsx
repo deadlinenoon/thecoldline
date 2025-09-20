@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import type { Event } from '@/lib/oddsTypes';
 import { teamLogoUrl } from '@/lib/logos';
 
@@ -53,8 +54,30 @@ export default function OddsBoard(){
                   <tr key={ev.id} className="border-t border-[#1b2735] align-top">
                     <td className="px-3 py-2 text-xs text-gray-300">{kickoffET(ev.commence_time)} ET</td>
                     <td className="px-3 py-2">
-                      <div className="inline-flex items-center gap-2"><img src={teamLogoUrl(ev.away_team)} alt="" className="h-4 w-4" onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }} /> {ev.away_team}</div>
-                      <div className="inline-flex items-center gap-2 mt-0.5"><img src={teamLogoUrl(ev.home_team)} alt="" className="h-4 w-4" onError={(e)=>{ (e.target as HTMLImageElement).style.display='none'; }} /> {ev.home_team}</div>
+                      <div className="inline-flex items-center gap-2">
+                        <Image
+                          src={teamLogoUrl(ev.away_team)}
+                          alt=""
+                          className="h-4 w-4"
+                          width={16}
+                          height={16}
+                          unoptimized
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        />
+                        {ev.away_team}
+                      </div>
+                      <div className="inline-flex items-center gap-2 mt-0.5">
+                        <Image
+                          src={teamLogoUrl(ev.home_team)}
+                          alt=""
+                          className="h-4 w-4"
+                          width={16}
+                          height={16}
+                          unoptimized
+                          onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                        />
+                        {ev.home_team}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-300">
                       <div>{medSpread==null? '—' : fmtPt(medSpread)}</div>

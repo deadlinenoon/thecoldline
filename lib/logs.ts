@@ -7,7 +7,7 @@ export function logWarn(slice: string, msg: any) {
     const row: WarnRow = { ts: Date.now(), slice, msg: String(msg ?? '') };
     RING.push(row);
     while (RING.length > CAP) RING.shift();
-    // eslint-disable-next-line no-console
+     
     console.warn(`[warn] ${slice}: ${row.msg}`);
   } catch {}
 }

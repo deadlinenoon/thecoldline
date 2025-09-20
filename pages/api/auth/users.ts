@@ -1,13 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { adminEnv, verifyJWT, isAdminIdentity, decodeJwtUnsafe } from '../../../lib/auth';
-import { readUsers, readUsersKV } from '../../../lib/userstore';
-import { kvAvailable, kvLRange } from '../../../lib/kv';
+import { adminEnv, verifyJWT, isAdminIdentity, decodeJwtUnsafe } from '@/lib/auth';
+import { readUsersKV } from '@/lib/userstore';
+import { kvAvailable, kvLRange } from '@/lib/kv';
 
 function parseCookie(h: string|undefined){ const out:Record<string,string>={}; if(!h) return out; for(const p of h.split(';')){ const [k,...r]=p.trim().split('='); if(!k) continue; out[k]=decodeURIComponent(r.join('=')); } return out; }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try{
-    const { secret, email: adminEmail } = adminEnv();
+    const { secret } = adminEnv();
     const cookies = parseCookie(req.headers.cookie);
     const tok = cookies['tcl_sess'];
     let isAdmin=false;

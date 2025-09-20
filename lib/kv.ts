@@ -1,5 +1,5 @@
 // lib/kv.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 export type KV = {
   // scalars
   get: (key: string) => Promise<string | number | null>;

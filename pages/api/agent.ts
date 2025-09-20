@@ -3,27 +3,18 @@ import { favoriteFromSpread } from '@/lib/odds';
 import { logWarn } from '@/lib/logs';
 import { getMatchupContext } from '@/lib/providers/balldontlie';
 
-type Settle<T> = Promise<{
-  ok: boolean;
-  value?: T;
-  error?: string;
-  rateProtected?: boolean;
-}>;
-
 const CACHE = new Map<string, { ts: number; data: any }>();
 const INFLIGHT = new Map<string, { ts: number; p: Promise<any> }>();
 const TTL_MS = 10 * 60 * 1000; // 10 minutes
 const COALESCE_MS = 2000; // 2 seconds
 
-async function settle<T>(p: Promise<Response>): Settle<T> {
-  try {
-    const r = await p;
-    const j = await r.json();
-    if (!r.ok) return { ok: false, error: j?.error || `HTTP ${r.status}` };
-    return { ok: true, value: j, rateProtected: !!j?.rateProtected };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || "fetch error" };
-  }
+function resolveBaseUrl(req: NextApiRequest): string {
+  const forwardedHost = (req.headers['x-forwarded-host'] as string | undefined)?.trim();
+  const host = forwardedHost || (req.headers.host ?? '').trim() || (process.env.VERCEL_URL ?? '').trim();
+  const protoHeader = (req.headers['x-forwarded-proto'] as string | undefined)?.trim();
+  const proto = protoHeader || (host && host.includes('localhost') ? 'http' : 'https');
+  const finalHost = host || '127.0.0.1:3000';
+  return `${proto}://${finalHost.replace(/^https?:\/\//, '')}`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -55,18 +46,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const proto = (req.headers["x-forwarded-proto"] as string) || "http";
-    const host = req.headers.host;
-  const base = `${proto}://${host}`;
+    const base = resolveBaseUrl(req);
 
     // Helper to safely fetch JSON with slice-specific error
     async function safeJson(path: string, slice: string): Promise<{ data: any; rateProtected?: boolean }> {
       try {
-        const r = await fetch(path);
+        const r = await fetch(path, { cache: 'no-store' });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
         return { data: j, rateProtected: !!j?.rateProtected };
-      } catch (e: any) {
+      } catch {
         return { data: { error: `${slice} fetch failed` } } as any;
       }
     }
@@ -183,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data.notes     = (notesResp.data && typeof notesResp.data === 'object') ? notesResp.data : { error: 'notes fetch failed' };
       data.consensus = (consensusResp.data && typeof consensusResp.data === 'object') ? consensusResp.data : { error: 'consensus fetch failed' };
 
-      const familiarity = computeCoachingFamiliarityAdjustments(home, away, kickoff);
+      const familiarity = computeCoachingFamiliarityAdjustments(home, away);
       if (familiarity) data.coachingFamiliarity = familiarity;
 
       // MOV combined
@@ -236,7 +225,7 @@ type CoachingFamiliarityAdjustment = {
   away?: CoachingSideAdjustment;
 };
 
-function computeCoachingFamiliarityAdjustments(home: string, away: string, kickoff: string): CoachingFamiliarityAdjustment | null {
+function computeCoachingFamiliarityAdjustments(home: string, away: string): CoachingFamiliarityAdjustment | null {
   const h = home.trim().toLowerCase();
   const a = away.trim().toLowerCase();
   const isCowboysHome = h === 'dallas cowboys';

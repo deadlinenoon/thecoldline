@@ -40,7 +40,7 @@ export function readEvents(sinceMs?: number): AnalyticsEvent[] {
   if (kvAvailable()) {
     // Read a recent window from list (last 5000 events)
     try{
-      const lines = kvLRange('analytics:events', 0, 5000) as unknown as string[];
+      kvLRange('analytics:events', 0, 5000);
       // Note: can't await in sync function; fall back to empty list in KV mode for summary()
       return [];
     }catch{ return []; }

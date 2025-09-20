@@ -1,13 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getMatchupContext } from '@/lib/providers/balldontlie';
 import { balldontlieFetch } from '@/lib/providers/balldontlie/client';
-import { toAbbr } from '@/lib/nfl-teams';
+import { TEAM_ID, toAbbr } from '@/lib/nfl-teams';
 import { logWarn } from '@/lib/logs';
 import type { InjuryItem, InjuryReport, InjuryTeamReport } from '@/lib/injuries/types';
 
 const CACHE = new Map<string, { ts: number; data: InjuryReport }>();
 const TTL = 10 * 60 * 1000;
 const FALLBACK_SOURCE = 'balldontlie-api';
+const ESPN_SOURCE = 'espn-api';
+
+const ESPN_HEADERS: Record<string, string> = {
+  'User-Agent': 'Mozilla/5.0 (compatible; TheColdLine/1.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+  Accept: 'application/json',
+};
 
 function serialize(list: InjuryItem[], sources: string[] = ['balldontlie-all-access']): InjuryTeamReport {
   const uniqueSources = Array.from(new Set(sources.filter(Boolean))).map(String);
@@ -163,6 +169,74 @@ async function fetchDirectInjuries(teamCandidates: string[], kickoff: string | n
   return [];
 }
 
+async function fetchEspnInjuries(teamAbbr: string): Promise<InjuryItem[]> {
+  const key = String(teamAbbr || '').trim().toUpperCase();
+  const lookup = TEAM_ID[key];
+  if (!lookup) return [];
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${lookup}/injuries`;
+    const resp = await fetch(url, { headers: ESPN_HEADERS, cache: 'no-store' });
+    if (!resp.ok) throw new Error(`espn injuries ${resp.status}`);
+    const payload = await resp.json().catch(() => ({}));
+    const groups = Array.isArray(payload?.injuries) ? payload.injuries : [];
+    const collected: InjuryItem[] = [];
+    for (const group of groups) {
+      const bucket = Array.isArray(group?.injuries)
+        ? group.injuries
+        : Array.isArray(group?.athletes)
+          ? group.athletes
+          : [];
+      for (const entry of bucket) {
+        const athlete = (entry?.athlete ?? {}) as Record<string, unknown>;
+        const nameCandidates = [
+          pickString(entry?.name),
+          pickString(athlete?.displayName),
+          pickString(athlete?.fullName),
+          pickString(`${athlete?.firstName || ''} ${athlete?.lastName || ''}`),
+        ];
+        const name = nameCandidates.find(Boolean);
+        if (!name) continue;
+        const statusCandidates = [
+          pickString(entry?.status),
+          pickString(entry?.injuryStatus),
+          pickString(group?.status),
+        ];
+        const positionCandidates = [
+          pickString(entry?.position),
+          pickString((athlete?.position as Record<string, unknown> | undefined)?.abbreviation),
+          pickString((athlete?.position as Record<string, unknown> | undefined)?.displayName),
+        ];
+        const noteCandidates = [
+          pickString(entry?.details),
+          pickString(entry?.comment),
+          pickString(entry?.note),
+          pickString(group?.comment),
+        ];
+        collected.push({
+          name,
+          status: statusCandidates.find(Boolean) || '—',
+          position: positionCandidates.find(Boolean) || '',
+          note: noteCandidates.find(Boolean) || '',
+        });
+      }
+    }
+    if (!collected.length) return [];
+    const seen = new Set<string>();
+    const deduped: InjuryItem[] = [];
+    for (const item of collected) {
+      const key = `${item.name}|${item.status}|${item.position}|${item.note}`.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(item);
+      if (deduped.length >= 40) break;
+    }
+    return deduped;
+  } catch (error) {
+    logWarn('injuries', error instanceof Error ? `ESPN fallback failed: ${error.message}` : `ESPN fallback failed: ${String(error)}`);
+    return [];
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse<InjuryReport>) {
   try {
     const homeRaw = String(req.query.home || '').trim();
@@ -214,6 +288,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const fallback = await fetchDirectInjuries(homeCandidates, kickoff);
       if (fallback.length) {
         home = serialize(fallback, [...home.sources, FALLBACK_SOURCE]);
+      } else if (homeIn) {
+        const espn = await fetchEspnInjuries(homeIn);
+        if (espn.length) {
+          home = serialize(espn, [...home.sources, ESPN_SOURCE]);
+        }
       }
     }
 
@@ -228,6 +307,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       const fallback = await fetchDirectInjuries(awayCandidates, kickoff);
       if (fallback.length) {
         away = serialize(fallback, [...away.sources, FALLBACK_SOURCE]);
+      } else if (awayIn) {
+        const espn = await fetchEspnInjuries(awayIn);
+        if (espn.length) {
+          away = serialize(espn, [...away.sources, ESPN_SOURCE]);
+        }
       }
     }
     const data: InjuryReport = { home, away };
