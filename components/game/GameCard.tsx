@@ -549,6 +549,11 @@ export function GameCard({
               home={metricsHome}
               away={metricsAway}
               kickoffISO={kickoff ?? undefined}
+              season={REDZONE_SEASON}
+              teamTags={{ home: teamTagHome, away: teamTagAway }}
+              injuries={effectiveInjuries}
+              coachingFamiliarity={coachingFamiliarity}
+              marketSpread={marketSpread ?? null}
             />
           ) : null}
 
