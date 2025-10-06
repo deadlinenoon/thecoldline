@@ -41,6 +41,14 @@ type WeatherPayload = {
   stadium?: string | null;
 };
 
+type ConsensusPayload = {
+  bets?: { home: number | null; away: number | null } | null;
+  handle?: { home: number | null; away: number | null } | null;
+  source?: string | null;
+  home?: number | null;
+  away?: number | null;
+};
+
 type RedZoneBreakdown = {
   offense?: {
     tdPct?: number | null;
@@ -121,6 +129,80 @@ function parseSpread(label: string): { favorite: string | null; value: string } 
   return { favorite, value: parts.join(' ') || '—' };
 }
 
+function clampPercent(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value <= 0) return 0;
+  if (value >= 100) return 100;
+  return Math.round(value);
+}
+
+function derivePair(homeRaw: number | null | undefined, awayRaw: number | null | undefined): { home: number | null; away: number | null } {
+  const home = clampPercent(homeRaw);
+  const away = clampPercent(awayRaw);
+  if (home != null && away != null) {
+    const total = home + away;
+    if (total === 0) return { home: 0, away: 0 };
+    if (total !== 100) {
+      const scale = 100 / total;
+      const scaledHome = Math.round(home * scale);
+      return { home: scaledHome, away: Math.max(0, 100 - scaledHome) };
+    }
+    return { home, away };
+  }
+  if (home != null) {
+    return { home, away: Math.max(0, 100 - home) };
+  }
+  if (away != null) {
+    return { home: Math.max(0, 100 - away), away };
+  }
+  return { home: null, away: null };
+}
+
+function ConsensusBar({
+  label,
+  splits,
+  source,
+}: {
+  label: string;
+  splits: { home: number | null; away: number | null };
+  source?: string | null;
+}) {
+  const home = splits.home;
+  const away = splits.away;
+  const hasValues = home != null || away != null;
+  const safeHome = home ?? (away != null ? Math.max(0, 100 - away) : null);
+  const safeAway = away ?? (home != null ? Math.max(0, 100 - home) : null);
+  const awayWidth = Math.max(0, Math.min(100, safeAway ?? 0));
+  const homeWidth = Math.max(0, Math.min(100, safeHome ?? 0));
+
+  return (
+    <div className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-3">
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <span className="uppercase tracking-wide">{label}</span>
+        {source ? <span className="truncate text-[11px] text-slate-500">{source}</span> : null}
+      </div>
+      {hasValues ? (
+        <>
+          <div className="mt-2 flex h-2 w-full overflow-hidden rounded bg-slate-700/70">
+            <div className="h-full bg-sky-500/80" style={{ width: `${awayWidth}%` }} />
+            <div className="h-full bg-emerald-400/80" style={{ width: `${homeWidth}%` }} />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-300">
+            <span>
+              Away <strong className="text-sky-200">{safeAway != null ? `${safeAway}%` : '—'}</strong>
+            </span>
+            <span>
+              Home <strong className="text-emerald-200">{safeHome != null ? `${safeHome}%` : '—'}</strong>
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="mt-2 text-[11px] text-slate-400">Consensus split unavailable.</p>
+      )}
+    </div>
+  );
+}
+
 function TeamBadge({ abbr, name }: { abbr: string; name: string }) {
   const logo = teamLogo(abbr);
   if (!logo) {
@@ -193,7 +275,7 @@ function LineRow({ spreadLabel, totalLabel, hfaDelta }: { spreadLabel: string; t
 }
 
 export default function ColdGameCard({ g, spreadLabel, totalLabel }: ColdGameCardProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const params = new URLSearchParams({
     home: g.home_team.abbreviation,
@@ -204,7 +286,11 @@ export default function ColdGameCard({ g, spreadLabel, totalLabel }: ColdGameCar
   if (g.date) params.set('kickoff', g.date);
 
   const metricsKey = `/api/metrics?${params.toString()}`;
-  const { data: metrics } = useSWR<MetricsPayload>(metricsKey, (url: string) => fetcher<MetricsPayload>(url), {
+  const {
+    data: metrics,
+    error: metricsError,
+    isLoading: metricsLoading,
+  } = useSWR<MetricsPayload>(metricsKey, (url: string) => fetcher<MetricsPayload>(url), {
     revalidateOnFocus: false,
   });
 
@@ -223,6 +309,19 @@ export default function ColdGameCard({ g, spreadLabel, totalLabel }: ColdGameCar
   const { data: redZone, error: redZoneError } = useSWR<RedZonePayload>(
     redZoneKey,
     redZoneKey ? (url: string) => fetcher<RedZonePayload>(url) : null,
+    { revalidateOnFocus: false }
+  );
+
+  const consensusKey = open
+    ? `/api/consensus?home=${encodeURIComponent(g.home_team.name)}&away=${encodeURIComponent(g.away_team.name)}&homeAbbr=${encodeURIComponent(g.home_team.abbreviation)}&awayAbbr=${encodeURIComponent(g.away_team.abbreviation)}`
+    : null;
+  const {
+    data: consensus,
+    error: consensusError,
+    isLoading: consensusLoading,
+  } = useSWR<ConsensusPayload>(
+    consensusKey,
+    consensusKey ? (url: string) => fetcher<ConsensusPayload>(url) : null,
     { revalidateOnFocus: false }
   );
 
@@ -294,9 +393,40 @@ export default function ColdGameCard({ g, spreadLabel, totalLabel }: ColdGameCar
         />
       </div>
 
-      {open && metrics ? (
+      {open ? (
         <div className="mt-4 border-t border-slate-700 pt-4 text-sm">
-          <MetricsAccordion data={metrics} />
+          {metricsError ? (
+            <p className="text-xs text-rose-400">
+              Metrics unavailable: {metricsError instanceof Error ? metricsError.message : String(metricsError)}
+            </p>
+          ) : metrics ? (
+            <MetricsAccordion data={metrics} />
+          ) : metricsLoading ? (
+            <p className="text-xs text-slate-500">Loading metrics…</p>
+          ) : null}
+
+          <div className="mt-4 space-y-3">
+            {consensusError ? (
+              <p className="text-xs text-rose-400">
+                Consensus unavailable: {consensusError instanceof Error ? consensusError.message : String(consensusError)}
+              </p>
+            ) : consensus ? (
+              (() => {
+                const bets = derivePair(consensus.bets?.home ?? consensus.home, consensus.bets?.away ?? consensus.away);
+                const handle = derivePair(consensus.handle?.home, consensus.handle?.away);
+                const sourceLabel = consensus.source || undefined;
+                return (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <ConsensusBar label="Public Bets" splits={bets} source={sourceLabel} />
+                    <ConsensusBar label="Handle" splits={handle} />
+                  </div>
+                );
+              })()
+            ) : consensusLoading ? (
+              <p className="text-xs text-slate-500">Loading consensus…</p>
+            ) : null}
+          </div>
+
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {redZone ? (
               <>

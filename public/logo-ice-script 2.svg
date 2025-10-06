@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
+  <title id="title">The Cold Line</title>
+  <desc id="desc">Elegant, icy wordmark with geometric snowflake monogram</desc>
+  <defs>
+    <linearGradient id="iceFill" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e6fbff"/>
+      <stop offset="0.45" stop-color="#a8eeff"/>
+      <stop offset="1" stop-color="#52d8ff"/>
+    </linearGradient>
+    <linearGradient id="iceStroke" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#67e8f9" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- left monogram: geometric snowflake in a subtle ring -->
+  <g transform="translate(28,60)">
+    <circle r="26" fill="none" stroke="url(#iceStroke)" stroke-width="2" opacity="0.7"/>
+    <g stroke="url(#iceStroke)" stroke-width="2.2" stroke-linecap="round">
+      <line x1="0" y1="-18" x2="0" y2="18"/>
+      <line x1="-18" y1="0" x2="18" y2="0"/>
+      <line x1="-12.7" y1="-12.7" x2="12.7" y2="12.7"/>
+      <line x1="12.7" y1="-12.7" x2="-12.7" y2="12.7"/>
+    </g>
+    <g fill="url(#iceFill)" opacity="0.9">
+      <circle r="2.5"/>
+    </g>
+  </g>
+
+  <!-- elegant wordmark -->
+  <g filter="url(#glow)" transform="translate(76,20)">
+    <text x="0" y="38" font-size="44" font-weight="600"
+          font-family="'Playfair Display','Cinzel','Georgia','Times New Roman',serif"
+          fill="url(#iceFill)" stroke="url(#iceStroke)" stroke-width="1.2" paint-order="stroke">
+      The Cold Line
+    </text>
+    <path d="M2 54 C 90 72, 240 70, 420 56" fill="none" stroke="url(#iceStroke)" stroke-width="3" opacity="0.75"/>
+    <path d="M6 58 C 96 76, 242 74, 424 60" fill="none" stroke="#0ea5b7" stroke-width="1.5" opacity="0.6"/>
+  </g>
+</svg>

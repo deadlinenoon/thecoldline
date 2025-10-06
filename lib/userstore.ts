@@ -72,8 +72,14 @@ export async function findUserKV(email: string): Promise<User | undefined> {
   if (!kvAvailable()) return findUser(email);
   try{
     const h = await kvHGetAll(`user:${email.toLowerCase()}`);
-    if (!h) return undefined;
-    return { email: h.email, salt: h.salt, hash: h.hash, role: (h.role as any) || 'user', createdAt: h.createdAt } as User;
+    if (!h || Object.keys(h).length === 0) return undefined;
+    return {
+      email: h.email,
+      salt: h.salt,
+      hash: h.hash,
+      role: (h.role as any) || 'user',
+      createdAt: h.createdAt,
+    } as User;
   }catch{ return undefined; }
 }
 
@@ -123,26 +129,22 @@ export async function deleteUser(email: string){
   writeUsers(all);
 }
 
-export function verifyUserPassword(email: string, password: string): User | null {
-  // In environments where KV is configured but may be empty or out-of-sync,
-  // we still allow verifying against any filesystem users to avoid lockouts.
-  let u: User | undefined = undefined;
-  if (kvAvailable()) {
-    try {
-      const all = readUsers();
-      u = all.find(x => x.email.toLowerCase() === email.toLowerCase());
-    } catch {
-      u = undefined;
-    }
-  } else {
-    u = findUser(email);
+export async function verifyUserPassword(email: string, password: string): Promise<User | null> {
+  const normalized = email.trim().toLowerCase();
+  let u = await findUserKV(normalized);
+
+  if (!u) {
+    // Fallback to filesystem users when KV misses or is unavailable.
+    u = findUser(normalized);
   }
-  if (!u) return null;
+
+  if (!u || !u.salt || !u.hash) return null;
+
   const hash = crypto.createHash('sha256').update(u.salt + password).digest('hex');
-  // timingSafeEqual throws on length mismatch; guard for safety
   const ok = (hash.length === u.hash.length)
     ? crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(u.hash))
     : (hash === u.hash);
+
   return ok ? u : null;
 }
 

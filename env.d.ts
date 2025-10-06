@@ -45,5 +45,6 @@ declare namespace NodeJS {
     INVITES_ALLOW_USERS?: string;
     WHITELIST?: string;
     DATA_DIR?: string;
+    PUBLIC_MODE?: string;
   }
 }

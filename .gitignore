@@ -9,3 +9,4 @@ tmp
 .vscode
 .env*.local
 backups/
+.venv/

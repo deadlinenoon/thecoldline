@@ -118,13 +118,13 @@ async function callOpenAI(context: unknown): Promise<string> {
         {
           role: 'system',
           content: [
-            { type: 'text', text: buildSystemPrompt() },
+            { type: 'input_text', text: buildSystemPrompt() },
           ],
         },
         {
           role: 'user',
           content: [
-            { type: 'text', text: JSON.stringify(context) },
+            { type: 'input_text', text: JSON.stringify(context) },
           ],
         },
       ],

@@ -158,6 +158,24 @@ const ITERATION_PRESETS = [500, 1000, 5000] as const;
 const SCORE_LIMIT_OPTIONS = [100, 250, 1000] as const;
 const DEFAULT_ITERATIONS = 1000;
 
+const ENGINE_KEYS = ['team', 'classic'] as const;
+type EngineKey = typeof ENGINE_KEYS[number];
+
+const ENGINE_LABELS: Record<EngineKey, string> = {
+  team: 'Team-based',
+  classic: 'Classic',
+};
+
+const ENGINE_HINTS: Record<EngineKey, string> = {
+  team: 'Matchup-aware priors tuned to each roster.',
+  classic: 'League-average baseline for quick comparisons.',
+};
+
+const ENGINE_SUMMARY: Record<EngineKey, string> = {
+  team: 'Opponent-adjusted Poisson model driven by team-specific priors.',
+  classic: 'League-average fallback simulation when detailed team priors are thin.',
+};
+
 function formatPct(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -217,7 +235,7 @@ const statusTheme = (status: string | null | undefined): string => {
 };
 
 function useSimulation(
-  engine: 'team' | 'classic',
+  engine: EngineKey,
   opts: { home: string; away: string; iterations: number; spread: number | null | undefined; total: number | null | undefined; context?: ExpectedPointsContext }
 ): SimulationResult {
   const { home, away, iterations, spread, total, context } = opts;
@@ -291,10 +309,10 @@ export function GameCard({
   injuriesError,
   coachingFamiliarity = null,
 }: GameCardProps) {
-  const [engine, setEngine] = useState<'team' | 'classic'>('team');
+  const [engine, setEngine] = useState<EngineKey>('team');
   const [iterations, setIterations] = useState<number>(defaultIterations);
   const [showScores, setShowScores] = useState(false);
-  const [showMetrics, setShowMetrics] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [scoreLimit, setScoreLimit] = useState<number>(SCORE_LIMIT_OPTIONS[0]);
   const [showInjuries, setShowInjuries] = useState(false);
@@ -311,7 +329,7 @@ export function GameCard({
   }, [home, away]);
 
   useEffect(() => {
-    setShowMetrics(false);
+    setShowMetrics(true);
   }, [home, away]);
 
   useEffect(() => {
@@ -498,9 +516,35 @@ export function GameCard({
               ) : null}
             </div>
           ) : null}
-          <div>
-            <h3 className="text-xs uppercase tracking-wide text-emerald-300">Simulation Output</h3>
-            <p className="mt-1 text-[11px] text-slate-500">Team-based Poisson sampler</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-emerald-300">Simulation Output</h3>
+              <p className="mt-1 max-w-[320px] text-[11px] text-slate-500">{ENGINE_SUMMARY[engine]}</p>
+            </div>
+            <div className="flex gap-3 text-left text-xs">
+              {ENGINE_KEYS.map((key) => (
+                <div key={key} className="flex min-w-[130px] flex-col">
+                  <button
+                    type="button"
+                    className={`rounded-md px-3 py-1 font-semibold transition ${
+                      engine === key
+                        ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-500/30'
+                        : 'bg-transparent text-cyan-300 hover:bg-cyan-900/40'
+                    }`}
+                    onClick={() => setEngine(key)}
+                  >
+                    {ENGINE_LABELS[key]}
+                  </button>
+                  <span
+                    className={`mt-1 text-[10px] leading-snug ${
+                      engine === key ? 'text-slate-300' : 'text-slate-500'
+                    }`}
+                  >
+                    {ENGINE_HINTS[key]}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
@@ -525,25 +569,6 @@ export function GameCard({
 
       {!collapsed && (
         <>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className={`rounded-md px-3 py-1 text-xs font-semibold ${engine === 'team' ? 'bg-cyan-600 text-white' : 'bg-transparent text-cyan-300 hover:bg-cyan-900/40'}`}
-                onClick={() => setEngine('team')}
-              >
-                Team-based
-              </button>
-              <button
-                type="button"
-                className={`rounded-md px-3 py-1 text-xs font-semibold ${engine === 'classic' ? 'bg-cyan-600 text-white' : 'bg-transparent text-cyan-300 hover:bg-cyan-900/40'}`}
-                onClick={() => setEngine('classic')}
-              >
-                Classic
-              </button>
-            </div>
-          </div>
-
           {showMetrics ? (
             <GameMetricsBlock
               home={metricsHome}

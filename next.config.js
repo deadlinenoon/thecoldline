@@ -33,6 +33,8 @@ if (logoCdn) {
   }
 }
 
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
@@ -43,6 +45,14 @@ const nextConfig = {
   },
   images: {
     remotePatterns,
+  },
+  webpack: (config) => {
+    config.resolve.alias = config.resolve.alias || {};
+    config.resolve.alias['use-sync-external-store/shim/index.js'] = path.resolve(
+      __dirname,
+      'src/shims/useSyncExternalStoreShim.ts'
+    );
+    return config;
   },
   async redirects() {
     return [

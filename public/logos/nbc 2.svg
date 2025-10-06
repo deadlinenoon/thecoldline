@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="18" viewBox="0 0 60 28" role="img" aria-label="NBC logo">
+  <rect x="0" y="0" width="60" height="28" rx="6" fill="#0f1720" />
+  <g transform="translate(0,0)">
+    <path d="M30 3 L35.5 13.5 L24.5 13.5 Z" fill="#6d3bb1" />
+    <path d="M34.5 5.5 L45 13.5 L36.5 18.5 Z" fill="#0078d7" />
+    <path d="M36.5 15 L44 23.5 L33 23.5 Z" fill="#00a94f" />
+    <path d="M27 23.5 L16 23.5 L23.5 15 Z" fill="#f7b500" />
+    <path d="M25.5 18.5 L16 13.5 L26.5 5.5 Z" fill="#f37021" />
+    <path d="M26.5 18.5 L30 24.5 L33.5 18.5 Z" fill="#d92a27" />
+    <circle cx="30" cy="19" r="2.8" fill="#ffffff" />
+  </g>
+</svg>

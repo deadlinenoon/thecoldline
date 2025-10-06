@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }catch{}
     // 2) Fallback to local user store (dev/temp FS)
     if (!ok) {
-      const u = verifyUserPassword(em, password);
+      const u = await verifyUserPassword(em, password);
       if (u) { ok = true; role = u.role; }
     }
     // 3) Env-configured admin fallback

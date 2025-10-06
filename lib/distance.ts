@@ -1,19 +1,7 @@
-import { Geodesic } from "geographiclib";
-
 /** Great-circle distance in miles, rounded to nearest mile. */
 export function milesBetween(lat1: number, lon1: number, lat2: number, lon2: number): number {
   // no travel if identical coords
   if (lat1 === lat2 && lon1 === lon2) return 0;
-
-  try {
-    const inv = Geodesic.WGS84.Inverse(lat1, lon1, lat2, lon2);
-    const meters = typeof inv?.s12 === "number" && isFinite(inv.s12) ? inv.s12 : undefined;
-    if (meters !== undefined) {
-      return Math.round(meters / 1609.344);
-    }
-  } catch {
-    // fall through to haversine
-  }
 
   // Haversine fallback
   const toRad = (d: number) => (d * Math.PI) / 180;

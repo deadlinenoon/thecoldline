@@ -22,6 +22,9 @@
       "@/*": [
         "src/*",
         "*"
+      ],
+      "use-sync-external-store/shim/index.js": [
+        "src/shims/useSyncExternalStoreShim.ts"
       ]
     },
     "plugins": [

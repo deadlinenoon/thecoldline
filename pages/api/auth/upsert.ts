@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let ok = false;
     let exists = false;
     try{ if (kvAvailable()){ const kv = await findUserKV(em); if (kv){ const crypto=await import('crypto'); const h=crypto.createHash('sha256').update(kv.salt+password).digest('hex'); if(h===kv.hash){ ok=true; role=kv.role; } } } }catch{}
-    if (!ok){ const u=verifyUserPassword(em, password); if (u){ ok=true; role=u.role; } }
+    if (!ok){ const u=await verifyUserPassword(em, password); if (u){ ok=true; role=u.role; } }
     // existence check (KV preferred, fall back to file)
     try{ if (kvAvailable()){ const kv = await findUserKV(em); if (kv) exists = true; } }catch{}
     if (!exists){ const f = findUser(em); if (f) { exists = true; role = f.role; } }
